@@ -18,6 +18,7 @@ repos:
         language: system
         types: [python]
         files: ^(services/api|evals)/
+        exclude: ^services/api/alembic/
       - id: eslint
         name: eslint
         entry: bash -c 'cd apps/web && npm run lint'

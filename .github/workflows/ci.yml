@@ -80,6 +80,39 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  migration-check:
+    name: Migration Check
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.0-pg16
+        env:
+          POSTGRES_USER: replydesk
+          POSTGRES_PASSWORD: replydesk
+          POSTGRES_DB: replydesk_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U replydesk -d replydesk_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://replydesk:replydesk@localhost:5432/replydesk_test
+      TEST_DATABASE_URL: postgresql+asyncpg://replydesk:replydesk@localhost:5432/replydesk_test
+      REQUIRE_DB: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - name: Upgrade, downgrade, upgrade
+        run: |
+          uv run alembic upgrade head
+          uv run alembic downgrade base
+          uv run alembic upgrade head
+      - name: Schema and constraint tests
+        run: uv run pytest tests/db
+
   policy-check:
     name: Policy Integrity Check
     runs-on: ubuntu-latest
