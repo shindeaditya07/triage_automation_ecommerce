@@ -38,7 +38,8 @@ extend-exclude = ["services/api/alembic/versions"]
 select = ["E", "F", "W", "I", "B", "UP", "S", "C4", "SIM", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"]
+"tests/**" = ["S101", "RUF001"]  # tests use look-alike letters on purpose
+"services/api/textnorm.py" = ["RUF001"]  # the confusables map is look-alike letters
 
 [tool.mypy]
 python_version = "3.12"

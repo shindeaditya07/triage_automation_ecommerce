@@ -36,8 +36,9 @@ def test_committed_smoke_run_passes_and_says_grounding_was_not_evaluated() -> No
     assert report.grounding.status == "not_evaluated"
     assert report.grounding.metrics is None
     assert "not a pass" in report.grounding.detail
-    (system,) = report.systems
-    assert system.system == "recorded-fake"
+    system, baseline = report.systems
+    assert (system.system, system.gated) == ("recorded-fake", True)
+    assert (baseline.system, baseline.gated) == ("keyword-baseline", False)
     assert system.escalation.recall.rate is not None
     assert system.escalation.recall.rate >= runner.ESCALATION_RECALL_FLOOR
 
@@ -63,6 +64,7 @@ def test_low_escalation_recall_fails_the_run() -> None:
 
     class Blind:
         name = "blind"
+        gated = True
 
         def predict(self, ticket: LabeledTicket) -> Prediction:
             return Prediction(
@@ -197,3 +199,32 @@ def test_fake_client_skips_blank_lines(tmp_path: Path) -> None:
     path = tmp_path / "r.jsonl"
     path.write_text(json.dumps(row) + "\n\n", encoding="utf-8")
     assert FakeLLMClient.from_jsonl(path).classify("T001").flags == []
+
+
+def test_a_failing_baseline_does_not_fail_the_run_but_a_failing_gated_system_does() -> None:
+    report = _run()
+    baseline = report.systems[1]
+    assert baseline.escalation.recall.rate is not None
+    assert baseline.escalation.recall.rate < runner.ESCALATION_RECALL_FLOOR
+    assert report.passed
+
+    class Misses:
+        name = "weak-gated"
+        gated = True
+
+        def predict(self, ticket: LabeledTicket) -> Prediction:
+            return Prediction(
+                intent=ticket.intent, urgency=ticket.urgency.value, outcome=Outcome.DRAFT
+            )
+
+    failing = _run(pipelines=[Misses()])
+    assert not failing.passed
+    assert any("weak-gated" in f for f in failing.failures)
+
+
+def test_markdown_compares_the_systems_and_warns_that_the_fixture_column_is_synthetic() -> None:
+    text = runner.render_markdown(_run())
+    assert "## Comparison with the keyword baseline" in text
+    assert "| Metric | recorded-fake | keyword-baseline |" in text
+    assert "synthetic fixtures" in text
+    assert "comparison only, does not gate the run" in text
