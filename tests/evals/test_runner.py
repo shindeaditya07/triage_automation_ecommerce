@@ -178,11 +178,11 @@ def test_fake_client_returns_recorded_and_fails_closed() -> None:
     recorded = corpus.load_recorded()
     client = FakeLLMClient.from_jsonl(corpus.RECORDED_PATH)
     first: RecordedPrediction = recorded[0]
-    result = client.classify(first.ticket_id)
+    result = client.recorded_classification(first.ticket_id)
     assert result.intent == first.classification.intent
     assert result.confidence == first.classification.confidence
     with pytest.raises(RecordedOutputMissing, match="T999"):
-        client.classify("T999")
+        client.recorded_classification("T999")
     assert client.model == "fake-recorded" and client.temperature == 0.0
 
 
@@ -198,7 +198,7 @@ def test_fake_client_skips_blank_lines(tmp_path: Path) -> None:
     }
     path = tmp_path / "r.jsonl"
     path.write_text(json.dumps(row) + "\n\n", encoding="utf-8")
-    assert FakeLLMClient.from_jsonl(path).classify("T001").flags == []
+    assert FakeLLMClient.from_jsonl(path).recorded_classification("T001").flags == []
 
 
 def test_a_failing_baseline_does_not_fail_the_run_but_a_failing_gated_system_does() -> None:
