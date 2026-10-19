@@ -7,6 +7,7 @@ the clock or the network on its own.
 """
 
 import argparse
+import asyncio
 import hashlib
 import sys
 import uuid
@@ -34,6 +35,7 @@ from evals.schema import BadDraft, LabeledTicket, RecordedPrediction
 from scripts.policy_lib import POLICIES_PATH, policies_sha256, policies_version
 from services.api.llm.fake import FakeLLMClient
 from services.api.models.common import StrictModel
+from services.api.pipeline.classify import classify_ticket
 
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS_DIR = Path(__file__).parent / "results"
@@ -52,7 +54,7 @@ class Pipeline(Protocol):
 
 
 class RecordedPipeline:
-    """Classification from the FakeLLMClient; routing from the recorded outcome."""
+    """Classification through the real classification step (recorded client); routing recorded."""
 
     name = "recorded-fake"
     gated = True
@@ -62,7 +64,12 @@ class RecordedPipeline:
         self._recorded = {r.ticket_id: r for r in recorded}
 
     def predict(self, ticket: LabeledTicket) -> Prediction:
-        classification = self._client.recorded_classification(ticket.id)
+        stage = asyncio.run(classify_ticket(self._client, ticket.id, ticket.subject, ticket.body))
+        classification = stage.classification
+        if classification is None:  # the recorded client does not fail; this is a bug if it does
+            raise RuntimeError(
+                f"classification of {ticket.id} escalated: {stage.escalation_reason}"
+            )
         routing = self._recorded[ticket.id]
         return Prediction(
             intent=classification.intent,
