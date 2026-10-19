@@ -1,0 +1,99 @@
+# Single source for every numeric policy constant, keyed by policy ID.
+# Application code reads values from here; never hard-code them (docs/AGENTS.md section 1).
+#
+# Each constant has:
+#   value  the number the code uses
+#   unit   days | hours | months | paise | count
+#   text   a literal excerpt of the cited passage in docs/policies.md (markdown bold ignored)
+# `make policy-check` fails if the passage does not exist, the excerpt is not in it, or the
+# value does not appear in the excerpt (paise values are compared as rupees, e.g. 99900 -> ₹999).
+policy_version: "1.1"
+
+constants:
+  RET-1.1:
+    return_window_days:
+      value: 7
+      unit: days
+      text: "7 calendar days of the delivery date"
+
+  REF-2.2:
+    refund_business_days_min:
+      value: 5
+      unit: days
+      text: "5–7 business days"
+    refund_business_days_max:
+      value: 7
+      unit: days
+      text: "5–7 business days"
+
+  DMG-3.1:
+    damage_window_hours:
+      value: 48
+      unit: hours
+      text: "48 hours of the delivery timestamp"
+
+  SHP-4.1:
+    dispatch_window_days_min:
+      value: 1
+      unit: days
+      text: "1–2 business days"
+    dispatch_window_days_max:
+      value: 2
+      unit: days
+      text: "1–2 business days"
+
+  SHP-4.2:
+    delivery_metro_business_days_min:
+      value: 3
+      unit: days
+      text: "3–5 business days"
+    delivery_metro_business_days_max:
+      value: 5
+      unit: days
+      text: "3–5 business days"
+    delivery_standard_business_days_min:
+      value: 5
+      unit: days
+      text: "5–8 business days"
+    delivery_standard_business_days_max:
+      value: 8
+      unit: days
+      text: "5–8 business days"
+    delivery_remote_business_days_max:
+      value: 10
+      unit: days
+      text: "Up to 10 business days"
+
+  SHP-4.3:
+    free_shipping_threshold_paise:
+      value: 99900
+      unit: paise
+      text: "Shipping is free on orders totalling ₹999 or above"
+    shipping_fee_paise:
+      value: 6000
+      unit: paise
+      text: "a flat shipping charge of ₹60 applies"
+
+  PAY-7.1:
+    cod_limit_paise:
+      value: 500000
+      unit: paise
+      text: "COD is available only for orders totalling ₹5,000 or less"
+
+  PRD-6.3:
+    warranty_months:
+      value: 6
+      unit: months
+      text: "6-month manufacturer warranty"
+
+  ESC-8.1:
+    high_value_threshold_paise:
+      value: 1000000
+      unit: paise
+      text: "orders with an order value above ₹10,000"
+
+  ESC-8.2:
+    repeat_complaint_message_count:
+      value: 3
+      unit: count
+      text: "3 or more distinct messages on the same thread"
