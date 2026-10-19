@@ -24,8 +24,6 @@ _OPTIONAL_TEXT_FIELDS = (
     "llm_model",
     "judge_api_key",
     "judge_model",
-    "owner_email",
-    "owner_password_hash",
     "frozen_now",
 )
 
@@ -45,11 +43,61 @@ class DatabaseSettings(BaseSettings):
         return value
 
 
-class Settings(DatabaseSettings):
-    environment: Environment = "local"
+class AuthSettings(BaseSettings):
+    """Just what owner authentication needs, so the API can start (and `/healthz` answer) on a
+    host that has not been given the rest of the configuration yet."""
 
-    # API
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    environment: Environment = "local"
+    # Signs the session tokens. Random, 32+ characters, different in every environment.
     secret_key: SecretStr
+    owner_email: str | None = None
+    owner_password_hash: SecretStr | None = None  # argon2 hash; see `make owner-hash`
+
+    access_token_minutes: int = Field(default=15, gt=0)
+    refresh_token_days: int = Field(default=7, gt=0)
+    # Consecutive failed logins before the account locks; each further failure doubles the lock.
+    login_max_failures: int = Field(default=5, ge=1)
+    login_lockout_base_seconds: int = Field(default=60, gt=0)
+    login_lockout_max_seconds: int = Field(default=3600, gt=0)
+    login_ip_max_attempts: int = Field(default=10, ge=1)
+    login_ip_window_seconds: int = Field(default=300, gt=0)
+    # Reverse proxies in front of the API whose X-Forwarded-For entry can be trusted (Render: 1).
+    # 0 means "use the socket address", the only safe value when the API faces clients directly.
+    trusted_proxy_hops: int = Field(default=0, ge=0)
+
+    @field_validator("owner_email", "owner_password_hash", mode="before")
+    @classmethod
+    def _blank_credential_is_none(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator("owner_email")
+    @classmethod
+    def _normalise_owner_email(cls, value: str | None) -> str | None:
+        return value.strip().lower() if value else value
+
+    @model_validator(mode="after")
+    def _deployed_secret_is_long(self) -> "AuthSettings":
+        if (
+            self.environment in DEPLOYED_ENVIRONMENTS
+            and len(self.secret_key.get_secret_value()) < MIN_SECRET_LENGTH
+        ):
+            raise ValueError(
+                f"SECRET_KEY must be at least {MIN_SECRET_LENGTH} characters "
+                f"when ENVIRONMENT is {self.environment}"
+            )
+        return self
+
+    @property
+    def cookie_secure(self) -> bool:
+        return self.environment in DEPLOYED_ENVIRONMENTS
+
+
+class Settings(DatabaseSettings, AuthSettings):
+    # API
     hmac_secret: SecretStr
     base_url: str
     cors_allowed_origins: Annotated[list[str], NoDecode] = Field(default_factory=list)
@@ -69,10 +117,6 @@ class Settings(DatabaseSettings):
     judge_input_price_inr_per_1m: Decimal = Field(default=Decimal(0), ge=0)
     judge_output_price_inr_per_1m: Decimal = Field(default=Decimal(0), ge=0)
     embed_price_inr_per_1m: Decimal = Field(default=Decimal(0), ge=0)
-
-    # Auth. Required from feature/p2-owner-auth onward.
-    owner_email: str | None = None
-    owner_password_hash: SecretStr | None = None
 
     # Store profile
     store_name: str = "Kaveri Home Goods"
@@ -147,12 +191,11 @@ class Settings(DatabaseSettings):
         if self.environment in DEPLOYED_ENVIRONMENTS:
             if self.frozen_now is not None:
                 raise ValueError(f"FROZEN_NOW must be empty when ENVIRONMENT is {self.environment}")
-            for name in ("secret_key", "hmac_secret"):
-                if len(getattr(self, name).get_secret_value()) < MIN_SECRET_LENGTH:
-                    raise ValueError(
-                        f"{name.upper()} must be at least {MIN_SECRET_LENGTH} characters "
-                        f"when ENVIRONMENT is {self.environment}"
-                    )
+            if len(self.hmac_secret.get_secret_value()) < MIN_SECRET_LENGTH:
+                raise ValueError(
+                    f"HMAC_SECRET must be at least {MIN_SECRET_LENGTH} characters "
+                    f"when ENVIRONMENT is {self.environment}"
+                )
         if self.environment == "production" and self.llm_provider == "fake":
             raise ValueError("LLM_PROVIDER must not be 'fake' in production")
         return self

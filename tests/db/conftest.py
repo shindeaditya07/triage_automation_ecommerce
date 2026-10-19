@@ -96,3 +96,8 @@ def fetch(migrated_url: str) -> Callable[[str], list[asyncpg.Record]]:
             await conn.close()
 
     return lambda sql: asyncio.run(_run(sql))
+
+
+@pytest.fixture
+def anyio_backend() -> str:
+    return "asyncio"
