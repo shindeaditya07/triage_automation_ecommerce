@@ -37,11 +37,11 @@ test: ## Unit and pipeline tests (no live LLM or network)
 	$(UV) run pytest
 	cd apps/web && npm test
 
-eval: ## Full eval run against the labeled dataset (not yet implemented)
-	@echo "eval: not yet implemented (feature/p1-eval-harness)"
+eval: ## Full eval run against the labeled dataset (needs a live model; arrives with the LLM client)
+	$(UV) run python -m evals.runner --mode full --save
 
-eval-smoke: ## Smoke eval against recorded fixtures (not yet implemented)
-	@echo "eval-smoke: not yet implemented (feature/p1-eval-harness)"
+eval-smoke: ## Smoke eval against recorded fixtures (CI-safe, no model calls)
+	$(UV) run python -m evals.runner --mode smoke
 
 resilience: ## DB stop/start and API kill tests (not yet implemented)
 	@echo "resilience: not yet implemented (Phase 5)"
