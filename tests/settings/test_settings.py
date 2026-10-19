@@ -10,6 +10,15 @@ from services.api.settings import DatabaseSettings, Settings
 ROOT = Path(__file__).resolve().parents[2]
 DB_URL = "postgresql+asyncpg://u:p@localhost:5432/d"
 GOOD = "x" * 40
+# A drafter and a judge from different providers: the smallest valid non-fake LLM setup.
+REAL_MODELS = {
+    "LLM_PROVIDER": "anthropic",
+    "LLM_API_KEY": "k1",  # pragma: allowlist secret
+    "LLM_MODEL": "drafter",
+    "JUDGE_PROVIDER": "openai",
+    "JUDGE_API_KEY": "k2",  # pragma: allowlist secret
+    "JUDGE_MODEL": "judge",
+}
 
 
 @pytest.fixture(autouse=True)
@@ -93,10 +102,8 @@ def test_deployed_environments_reject_frozen_clock(
     _env(
         monkeypatch,
         ENVIRONMENT=environment,
-        LLM_PROVIDER="anthropic",
-        LLM_API_KEY="k",
-        LLM_MODEL="m",
         FROZEN_NOW="2026-10-15T12:00:00Z",
+        **REAL_MODELS,
     )
     with pytest.raises(ValidationError, match="FROZEN_NOW"):
         Settings()  # type: ignore[call-arg]
@@ -127,3 +134,56 @@ def test_env_example_lists_every_setting() -> None:
     assert fields - documented == set(), "missing from .env.example"
     # PORT is read by uvicorn/Render, not by Settings.
     assert documented - fields - {"PORT"} == set(), "in .env.example but not in Settings"
+
+
+def test_a_real_setup_loads_and_embeds_with_the_openai_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    _env(monkeypatch, **REAL_MODELS)
+    settings = Settings()  # type: ignore[call-arg]
+    assert settings.embedding_key() is not None
+    assert settings.embedding_key().get_secret_value() == "k2"  # type: ignore[union-attr]
+
+
+def test_provider_names_are_case_insensitive_and_checked(monkeypatch: pytest.MonkeyPatch) -> None:
+    _env(monkeypatch, **(REAL_MODELS | {"LLM_PROVIDER": " Anthropic "}))
+    assert Settings().llm_provider == "anthropic"  # type: ignore[call-arg]
+    _env(monkeypatch, LLM_PROVIDER="mystery")
+    with pytest.raises(ValidationError, match="llm_provider"):
+        Settings()  # type: ignore[call-arg]
+
+
+@pytest.mark.parametrize("missing", ["JUDGE_PROVIDER", "JUDGE_API_KEY", "JUDGE_MODEL"])
+def test_a_real_drafter_needs_a_judge(monkeypatch: pytest.MonkeyPatch, missing: str) -> None:
+    _env(monkeypatch, **{k: v for k, v in REAL_MODELS.items() if k != missing})
+    with pytest.raises(ValidationError, match="JUDGE_PROVIDER"):
+        Settings()  # type: ignore[call-arg]
+
+
+def test_the_judge_cannot_be_the_drafters_provider_unless_allowed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    same = REAL_MODELS | {
+        "JUDGE_PROVIDER": "anthropic",
+        "EMBED_API_KEY": "k3",  # pragma: allowlist secret
+    }
+    _env(monkeypatch, **same)
+    with pytest.raises(ValidationError, match="grade its own"):
+        Settings()  # type: ignore[call-arg]
+    _env(monkeypatch, **(same | {"JUDGE_SAME_FAMILY_OK": "true"}))
+    assert Settings().judge_provider == "anthropic"  # type: ignore[call-arg]
+
+
+def test_embeddings_need_an_openai_key_somewhere(monkeypatch: pytest.MonkeyPatch) -> None:
+    same = REAL_MODELS | {"JUDGE_PROVIDER": "anthropic", "JUDGE_SAME_FAMILY_OK": "true"}
+    _env(monkeypatch, **same)
+    with pytest.raises(ValidationError, match="OpenAI key"):
+        Settings()  # type: ignore[call-arg]
+
+
+def test_blank_judge_and_temperature_values_are_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    _env(monkeypatch, JUDGE_PROVIDER="", JUDGE_MODEL="", LLM_TEMPERATURE="")
+    settings = Settings()  # type: ignore[call-arg]
+    assert (settings.judge_provider, settings.judge_model, settings.llm_temperature) == (
+        None,
+        None,
+        None,
+    )

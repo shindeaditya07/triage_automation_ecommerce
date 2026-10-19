@@ -16,15 +16,20 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from services.api.models.records import EMBEDDING_DIMENSIONS
 
 Environment = Literal["local", "ci", "staging", "nonprod", "production"]
+Provider = Literal["fake", "anthropic", "openai"]
 DEPLOYED_ENVIRONMENTS = {"staging", "nonprod", "production"}
 MIN_SECRET_LENGTH = 32
 
-_OPTIONAL_TEXT_FIELDS = (
+_OPTIONAL_TEXT_FIELDS = ("frozen_now",)
+_OPTIONAL_LLM_FIELDS = (
     "llm_api_key",
     "llm_model",
+    "judge_provider",
     "judge_api_key",
     "judge_model",
-    "frozen_now",
+    "embed_api_key",
+    "llm_temperature",
+    "judge_temperature",
 )
 
 
@@ -152,27 +157,108 @@ class IntakeSettings(DeploymentSettings):
         return self
 
 
-class Settings(DatabaseSettings, AuthSettings, JobSettings, IntakeSettings):
-    # API
-    hmac_secret: SecretStr
-    base_url: str
-    cors_allowed_origins: Annotated[list[str], NoDecode] = Field(default_factory=list)
+class LLMSettings(BaseSettings):
+    """The language-model layer: which providers, which models, what they cost.
 
-    # LLM. "fake" uses recorded outputs and needs no key.
-    llm_provider: str = "fake"
+    `fake` replays recorded outputs and needs no key. Anything else needs a key and a model for the
+    drafter, and a *different* provider for the judge (docs/adr/0003-llm-provider.md).
+    """
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    llm_provider: Provider = "fake"
     llm_api_key: SecretStr | None = None
     llm_model: str | None = None
+    # Sampling temperature sent with classify and draft calls. 0 for repeatable output. Leave it
+    # empty (None) for a model that does not accept the parameter.
+    llm_temperature: float | None = Field(default=0.0, ge=0, le=2)
+    judge_provider: Provider | None = None
     judge_api_key: SecretStr | None = None
     judge_model: str | None = None
+    judge_temperature: float | None = Field(default=0.0, ge=0, le=2)
+    # By default the judge must come from a different provider than the drafter, so a model never
+    # grades its own output. Set true only to accept that on purpose.
+    judge_same_family_ok: bool = False
+    # Embeddings use OpenAI. The key falls back to LLM_API_KEY / JUDGE_API_KEY when one of them
+    # is an OpenAI key.
+    embed_api_key: SecretStr | None = None
     embed_model: str = "text-embedding-3-small"
     embed_dimensions: int = EMBEDDING_DIMENSIONS
     llm_timeout_seconds: int = Field(default=30, gt=0)
+    llm_max_attempts: int = Field(default=3, ge=1)
+    # Consecutive failed calls before the circuit opens, and how long it stays open.
+    llm_breaker_failures: int = Field(default=5, ge=1)
+    llm_breaker_cooldown_seconds: int = Field(default=30, gt=0)
     # INR per 1M tokens. Decimal, never float.
     llm_input_price_inr_per_1m: Decimal = Field(default=Decimal(0), ge=0)
     llm_output_price_inr_per_1m: Decimal = Field(default=Decimal(0), ge=0)
     judge_input_price_inr_per_1m: Decimal = Field(default=Decimal(0), ge=0)
     judge_output_price_inr_per_1m: Decimal = Field(default=Decimal(0), ge=0)
     embed_price_inr_per_1m: Decimal = Field(default=Decimal(0), ge=0)
+
+    @field_validator("llm_provider", "judge_provider", mode="before")
+    @classmethod
+    def _normalise_provider(cls, value: object) -> object:
+        return value.strip().lower() if isinstance(value, str) else value
+
+    @field_validator(*_OPTIONAL_LLM_FIELDS, mode="before")
+    @classmethod
+    def _blank_llm_value_is_none(cls, value: object) -> object:
+        """`JUDGE_MODEL=` in an env file means 'not set'."""
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator("embed_dimensions")
+    @classmethod
+    def _matches_table_width(cls, value: int) -> int:
+        if value != EMBEDDING_DIMENSIONS:
+            raise ValueError(
+                f"must be {EMBEDDING_DIMENSIONS}: the policy_embeddings column has that width, "
+                "so another size needs a migration first"
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _providers_are_usable(self) -> "LLMSettings":
+        if self.llm_provider == "fake":
+            return self
+        if not (self.llm_api_key and self.llm_model):
+            raise ValueError(
+                "LLM_API_KEY and LLM_MODEL are required when LLM_PROVIDER is not 'fake'"
+            )
+        if self.judge_provider in (None, "fake") or not (self.judge_api_key and self.judge_model):
+            raise ValueError(
+                "JUDGE_PROVIDER (not 'fake'), JUDGE_API_KEY and JUDGE_MODEL are required "
+                "when LLM_PROVIDER is not 'fake'"
+            )
+        if self.judge_provider == self.llm_provider and not self.judge_same_family_ok:
+            raise ValueError(
+                "JUDGE_PROVIDER must differ from LLM_PROVIDER so a model does not grade its own "
+                "output (set JUDGE_SAME_FAMILY_OK=true to accept that)"
+            )
+        if self.embedding_key() is None:
+            raise ValueError(
+                "embeddings need an OpenAI key: set EMBED_API_KEY, or use an OpenAI key as "
+                "LLM_API_KEY or JUDGE_API_KEY"
+            )
+        return self
+
+    def embedding_key(self) -> SecretStr | None:
+        if self.embed_api_key:
+            return self.embed_api_key
+        if self.llm_provider == "openai":
+            return self.llm_api_key
+        if self.judge_provider == "openai":
+            return self.judge_api_key
+        return None
+
+
+class Settings(DatabaseSettings, AuthSettings, JobSettings, IntakeSettings, LLMSettings):
+    # API
+    hmac_secret: SecretStr
+    base_url: str
+    cors_allowed_origins: Annotated[list[str], NoDecode] = Field(default_factory=list)
 
     # Store profile
     store_name: str = "Kaveri Home Goods"
@@ -205,11 +291,6 @@ class Settings(DatabaseSettings, AuthSettings, JobSettings, IntakeSettings):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
 
-    @field_validator("llm_provider")
-    @classmethod
-    def _normalise_provider(cls, value: str) -> str:
-        return value.strip().lower()
-
     @field_validator("store_timezone")
     @classmethod
     def _known_timezone(cls, value: str) -> str:
@@ -226,22 +307,8 @@ class Settings(DatabaseSettings, AuthSettings, JobSettings, IntakeSettings):
             raise ValueError("must include a timezone, e.g. 2026-10-15T12:00:00Z")
         return value
 
-    @field_validator("embed_dimensions")
-    @classmethod
-    def _matches_table_width(cls, value: int) -> int:
-        if value != EMBEDDING_DIMENSIONS:
-            raise ValueError(
-                f"must be {EMBEDDING_DIMENSIONS}: the policy_embeddings column has that width, "
-                "so another size needs a migration first"
-            )
-        return value
-
     @model_validator(mode="after")
     def _cross_field_rules(self) -> "Settings":
-        if self.llm_provider != "fake" and not (self.llm_api_key and self.llm_model):
-            raise ValueError(
-                "LLM_API_KEY and LLM_MODEL are required when LLM_PROVIDER is not 'fake'"
-            )
         if self.environment in DEPLOYED_ENVIRONMENTS:
             if self.frozen_now is not None:
                 raise ValueError(f"FROZEN_NOW must be empty when ENVIRONMENT is {self.environment}")

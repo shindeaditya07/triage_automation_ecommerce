@@ -1,9 +1,9 @@
 """Evaluation runner: `make eval-smoke` (recorded fixtures, no model calls) and `make eval`.
 
 Systems under test are registered by name, so each branch adds a column to the report: the
-recorded fake run, the keyword baseline, and later the live model (feature/p2-llm-client). Only
-gated systems can fail the run; the baseline is there for comparison. Nothing here reads the clock
-or the network on its own.
+recorded fake run, the keyword baseline, and later the live model (once classification exists).
+Only gated systems can fail the run; the baseline is there for comparison. Nothing here reads
+the clock or the network on its own.
 """
 
 import argparse
@@ -62,7 +62,7 @@ class RecordedPipeline:
         self._recorded = {r.ticket_id: r for r in recorded}
 
     def predict(self, ticket: LabeledTicket) -> Prediction:
-        classification = self._client.classify(ticket.id)
+        classification = self._client.recorded_classification(ticket.id)
         routing = self._recorded[ticket.id]
         return Prediction(
             intent=classification.intent,
@@ -342,8 +342,8 @@ def main(
 
     if args.mode == "full":
         print(
-            "make eval needs a live model client, which arrives with feature/p2-llm-client. "
-            "Nothing was run.",
+            "make eval needs the classification and escalation steps, which arrive with "
+            "feature/p2-classification and feature/p2-pre-lookup-escalation. Nothing was run.",
             file=sys.stderr,
         )
         return 2
