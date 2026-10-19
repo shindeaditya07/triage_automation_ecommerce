@@ -59,5 +59,6 @@ audit: ## pip-audit + npm audit
 	$(UV) run pip-audit
 	cd apps/web && npm audit
 
-policy-check: ## Verify policy_constants.yaml against policies.md (not yet implemented)
-	@echo "policy-check: not yet implemented (feature/p1-data-contract)"
+policy-check: ## Verify policy_constants.yaml and the policies.md SHA-256 lock
+	$(UV) run python -m scripts.check_policy_constants
+	$(UV) run python -m scripts.check_policy_sha
