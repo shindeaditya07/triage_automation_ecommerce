@@ -113,6 +113,18 @@ jobs:
       - name: Schema and constraint tests
         run: uv run pytest tests/db
 
+  eval-smoke:
+    name: Eval Smoke
+    runs-on: ubuntu-latest
+    env:
+      LLM_PROVIDER: fake
+      FROZEN_NOW: "2026-10-15T12:00:00Z"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - run: make eval-smoke
+
   policy-check:
     name: Policy Integrity Check
     runs-on: ubuntu-latest
