@@ -1,0 +1,46 @@
+# Local development stack. Copy .env.example to .env first (make up does this if .env is missing).
+services:
+  db:
+    image: pgvector/pgvector:0.8.0-pg16
+    environment:
+      POSTGRES_USER: replydesk
+      POSTGRES_PASSWORD: replydesk
+      POSTGRES_DB: replydesk
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U replydesk -d replydesk"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    env_file: .env
+    environment:
+      # Inside the compose network the database host is "db", not localhost.
+      DATABASE_URL: postgresql+asyncpg://replydesk:replydesk@db:5432/replydesk
+      MOCK_STORE_URL: http://mock-store:8001
+    ports:
+      - "8000:8000"
+
+  mock-store:
+    build:
+      context: .
+      dockerfile: services/mock-store/Dockerfile
+    env_file: .env
+    ports:
+      - "8001:8001"
+
+  web:
+    build:
+      context: apps/web
+    ports:
+      - "3000:8080"
+
+volumes:
+  pgdata:

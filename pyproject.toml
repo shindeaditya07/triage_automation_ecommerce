@@ -1,0 +1,44 @@
+[project]
+name = "replydesk"
+version = "0.1.0"
+description = "ReplyDesk: grounded support triage for small e-commerce stores"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9",
+    "pytest-cov>=6",
+    "httpx>=0.27,<0.29",
+    "ruff>=0.8,<0.9",
+    "mypy>=1.13,<2",
+    "pip-audit>=2.7,<3",
+    "detect-secrets>=1.5,<2",
+    "pre-commit>=4,<5",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["services/api/alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "C4", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["services/api", "evals"]
+explicit_package_bases = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+pythonpath = ["."]
