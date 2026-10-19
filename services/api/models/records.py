@@ -35,6 +35,9 @@ class Job(StrictModel):
     locked_by: str | None = None
     last_error: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
+    dedupe_key: str | None = Field(
+        default=None, description="job type + ticket + input hash; one job per key"
+    )
     created_at: UtcDatetime | None = None
     updated_at: UtcDatetime | None = None
 

@@ -1,6 +1,7 @@
-"""ReplyDesk API. Endpoints arrive branch by branch; so far: health and owner authentication."""
+"""ReplyDesk API. Endpoints arrive branch by branch; so far: health, owner authentication and the
+background job runner."""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -15,7 +16,11 @@ from services.api.auth.service import AuthService
 from services.api.auth.store import AuthStore, PostgresAuthStore
 from services.api.clock import Clock, utc_now
 from services.api.health import Database, check_readiness, open_database
-from services.api.settings import AuthSettings
+from services.api.jobs.runner import JobRunner
+from services.api.jobs.store import JobStore
+from services.api.jobs.worker import Handler
+from services.api.models.enums import JobType
+from services.api.settings import AuthSettings, JobSettings
 
 
 def _build_auth(
@@ -33,15 +38,37 @@ def _build_auth(
     return AuthService(settings, store, clock)
 
 
+async def _start_jobs(
+    database: Database,
+    settings: JobSettings | None,
+    handlers: Mapping[JobType, Handler],
+    clock: Clock,
+    supplied_engine: AsyncEngine | None,
+) -> JobRunner | None:
+    if database.engine is None or (settings is None and supplied_engine is not None):
+        return None
+    settings = settings or JobSettings()
+    if not settings.job_worker_enabled:
+        return None
+    runner = JobRunner(JobStore(database.engine), handlers, settings, clock)
+    await runner.start()
+    return runner
+
+
 def create_app(
     engine: AsyncEngine | None = None,
     *,
     auth_settings: AuthSettings | None = None,
     auth_store: AuthStore | None = None,
     clock: Clock = utc_now,
+    job_settings: JobSettings | None = None,
+    job_handlers: Mapping[JobType, Handler] | None = None,
 ) -> FastAPI:
     """Build the app. Tests pass an engine, auth settings, a store and a clock; otherwise the
     database and auth settings come from the environment.
+
+    The job worker and sweeper run inside the app when there is a database. A test that passes
+    an engine gets none unless it also passes `job_settings`.
 
     The app starts and listens whether or not the database is reachable (docs/AGENTS.md 4.2):
     connections open on first use, and `/readyz` reports what is wrong until they succeed.
@@ -52,9 +79,12 @@ def create_app(
         database = Database(engine=engine, owned=False) if engine is not None else open_database()
         app.state.database = database
         app.state.auth = _build_auth(auth_settings, database, auth_store, clock)
+        runner = await _start_jobs(database, job_settings, job_handlers or {}, clock, engine)
         try:
             yield
         finally:
+            if runner is not None:
+                await runner.stop()
             await database.close()  # drains the pool on SIGTERM
 
     app = FastAPI(title="ReplyDesk API", version="0.1.0", lifespan=lifespan)

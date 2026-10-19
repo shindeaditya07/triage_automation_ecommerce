@@ -232,8 +232,12 @@ jobs = Table(
     Column("locked_by", Text),
     Column("last_error", Text),
     Column("payload", JSONB, nullable=False, server_default=text("'{}'::jsonb")),
+    # job_type + ticket + input hash (migration 0003). One row per key, so a retry or a
+    # duplicate enqueue finds the existing job instead of creating another.
+    Column("dedupe_key", Text, nullable=False, server_default=text("gen_random_uuid()::text")),
     _timestamp("created_at", nullable=False, default_now=True),
     _timestamp("updated_at", nullable=False, default_now=True),
+    UniqueConstraint("dedupe_key", name="uq_jobs_dedupe_key"),
     CheckConstraint(_in("job_type", JobType), name="job_type"),
     CheckConstraint(_in("status", JobStatus), name="status"),
     CheckConstraint("attempts >= 0 AND max_attempts >= 1", name="attempts"),
