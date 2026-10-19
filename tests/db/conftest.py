@@ -108,12 +108,20 @@ def anyio_backend() -> str:
 
 @pytest.fixture
 async def engine(migrated_url: str) -> AsyncIterator[AsyncEngine]:
-    """An engine on the migrated database with no jobs or tickets in it. NullPool, so a
+    """An engine on the migrated database with an empty job queue (and no tickets other than ones
+    that have audit entries). NullPool, so a
     connection is never reused across event loops."""
     engine = create_async_engine(migrated_url, poolclass=NullPool)
     async with engine.begin() as conn:
         await conn.execute(text("DELETE FROM jobs"))
-        await conn.execute(text("DELETE FROM tickets"))
+        # audit_log is append-only, so a ticket that has audit entries can never be deleted.
+        # Tests that create those scope their queries to their own tickets.
+        await conn.execute(
+            text(
+                "DELETE FROM tickets WHERE NOT EXISTS"
+                " (SELECT 1 FROM audit_log WHERE audit_log.ticket_id = tickets.ticket_id)"
+            )
+        )
     try:
         yield engine
     finally:

@@ -1,6 +1,7 @@
-"""ReplyDesk API. Endpoints arrive branch by branch; so far: health, owner authentication and the
-background job runner."""
+"""ReplyDesk API. Endpoints arrive branch by branch; so far: health, owner authentication, the
+background job runner and ticket intake."""
 
+import logging
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 
@@ -16,11 +17,17 @@ from services.api.auth.service import AuthService
 from services.api.auth.store import AuthStore, PostgresAuthStore
 from services.api.clock import Clock, utc_now
 from services.api.health import Database, check_readiness, open_database
+from services.api.intake.routes import IntakeRuntime
+from services.api.intake.routes import router as intake_router
+from services.api.intake.service import IntakeService
+from services.api.intake.store import PostgresTicketStore
 from services.api.jobs.runner import JobRunner
 from services.api.jobs.store import JobStore
 from services.api.jobs.worker import Handler
 from services.api.models.enums import JobType
-from services.api.settings import AuthSettings, JobSettings
+from services.api.settings import AuthSettings, IntakeSettings, JobSettings
+
+log = logging.getLogger("replydesk.api")
 
 
 def _build_auth(
@@ -55,6 +62,26 @@ async def _start_jobs(
     return runner
 
 
+def _build_intake(
+    settings: IntakeSettings | None, database: Database, service: IntakeService | None, clock: Clock
+) -> IntakeRuntime | None:
+    """Intake needs a database. Its own settings all have defaults; a bad value turns intake off
+    (503) rather than the whole API, and the log names the setting, never its value."""
+    if settings is None:
+        try:
+            settings = IntakeSettings()
+        except ValidationError as exc:
+            log.error("intake disabled: invalid settings %s", [e["loc"] for e in exc.errors()])
+            return None
+    if service is None:
+        if database.engine is None:
+            return None
+        service = IntakeService(
+            PostgresTicketStore(database.engine, JobStore(database.engine)), clock
+        )
+    return IntakeRuntime.create(service, settings, clock)
+
+
 def create_app(
     engine: AsyncEngine | None = None,
     *,
@@ -63,10 +90,13 @@ def create_app(
     clock: Clock = utc_now,
     job_settings: JobSettings | None = None,
     job_handlers: Mapping[JobType, Handler] | None = None,
+    intake_settings: IntakeSettings | None = None,
+    intake_service: IntakeService | None = None,
 ) -> FastAPI:
     """Build the app. Tests pass an engine, auth settings, a store and a clock; otherwise the
     database and auth settings come from the environment.
 
+    Ticket intake needs a database too; a test can pass `intake_service` (and settings) instead.
     The job worker and sweeper run inside the app when there is a database. A test that passes
     an engine gets none unless it also passes `job_settings`.
 
@@ -79,6 +109,7 @@ def create_app(
         database = Database(engine=engine, owned=False) if engine is not None else open_database()
         app.state.database = database
         app.state.auth = _build_auth(auth_settings, database, auth_store, clock)
+        app.state.intake = _build_intake(intake_settings, database, intake_service, clock)
         runner = await _start_jobs(database, job_settings, job_handlers or {}, clock, engine)
         try:
             yield
@@ -90,6 +121,7 @@ def create_app(
     app = FastAPI(title="ReplyDesk API", version="0.1.0", lifespan=lifespan)
     app.add_middleware(CsrfMiddleware)
     app.include_router(auth_router)
+    app.include_router(intake_router)
 
     @app.exception_handler(SQLAlchemyError)
     @app.exception_handler(OSError)
