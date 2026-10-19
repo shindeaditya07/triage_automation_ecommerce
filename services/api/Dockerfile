@@ -14,6 +14,7 @@ RUN useradd --system --uid 10001 --no-create-home appuser
 COPY --from=builder /app/.venv /app/.venv
 COPY services/__init__.py services/__init__.py
 COPY services/api services/api
+COPY policy_constants.yaml policy_constants.yaml
 USER appuser
 EXPOSE 8000
 CMD ["python", "-m", "uvicorn", "services.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

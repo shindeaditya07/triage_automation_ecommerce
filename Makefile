@@ -24,8 +24,8 @@ down: ## Stop and remove containers
 migrate: ## Run Alembic migrations (uses DATABASE_URL from the environment or .env)
 	$(UV) run alembic upgrade head
 
-seed: ## Seed the mock store with the 31 edge cases (not yet implemented)
-	@echo "seed: not yet implemented (feature/p1-mock-store)"
+seed: ## Build the 31 mock-store edge cases, check them against the contract, write seed.json
+	$(UV) run python -m services.mock-store.seed
 
 lint: ## ruff + mypy (backend), eslint + prettier (frontend)
 	$(UV) run ruff check .
