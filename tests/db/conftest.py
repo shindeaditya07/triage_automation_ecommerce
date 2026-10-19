@@ -8,7 +8,7 @@ database into a failure so the checks cannot silently stop running.
 
 import asyncio
 import os
-from collections.abc import Callable, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +16,9 @@ import asyncpg
 import pytest
 from alembic import command
 from alembic.config import Config
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.pool import NullPool
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -101,3 +104,17 @@ def fetch(migrated_url: str) -> Callable[[str], list[asyncpg.Record]]:
 @pytest.fixture
 def anyio_backend() -> str:
     return "asyncio"
+
+
+@pytest.fixture
+async def engine(migrated_url: str) -> AsyncIterator[AsyncEngine]:
+    """An engine on the migrated database with no jobs or tickets in it. NullPool, so a
+    connection is never reused across event loops."""
+    engine = create_async_engine(migrated_url, poolclass=NullPool)
+    async with engine.begin() as conn:
+        await conn.execute(text("DELETE FROM jobs"))
+        await conn.execute(text("DELETE FROM tickets"))
+    try:
+        yield engine
+    finally:
+        await engine.dispose()

@@ -96,7 +96,21 @@ class AuthSettings(BaseSettings):
         return self.environment in DEPLOYED_ENVIRONMENTS
 
 
-class Settings(DatabaseSettings, AuthSettings):
+class JobSettings(BaseSettings):
+    """How the background job runner behaves. Every field has a default."""
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    # A job running longer than this is presumed lost and put back in the queue.
+    lock_timeout_seconds: int = Field(default=60, gt=0)
+    sweep_interval_seconds: int = Field(default=30, gt=0)
+    # How long an idle worker waits before asking the database for work again.
+    job_poll_interval_seconds: float = Field(default=2.0, gt=0)
+    # Set false to run the API without a worker in the same process.
+    job_worker_enabled: bool = True
+
+
+class Settings(DatabaseSettings, AuthSettings, JobSettings):
     # API
     hmac_secret: SecretStr
     base_url: str
@@ -127,9 +141,7 @@ class Settings(DatabaseSettings, AuthSettings):
     mock_store_url: str = "http://localhost:8001"
     frozen_now: datetime | None = None
 
-    # Jobs and retention
-    lock_timeout_seconds: int = Field(default=60, gt=0)
-    sweep_interval_seconds: int = Field(default=30, gt=0)
+    # Retention (the job settings are in JobSettings)
     retention_days: int = Field(default=90, ge=1)
 
     # Policy
