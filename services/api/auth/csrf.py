@@ -25,8 +25,17 @@ CSRF_COOKIE = "rd_csrf"
 CSRF_HEADER = "x-csrf-token"
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
 PROTECTED_PREFIX = "/api/"
-# Login has no session yet: it is authenticated by the credentials in its body.
-EXEMPT = frozenset({("POST", "/api/v1/auth/login")})
+# Login has no session yet: it is authenticated by the credentials in its body. The two intake
+# endpoints never use the session cookie (one is public, one is signed), so there is nothing for a
+# hostile page to ride; exempting them also keeps a signed-in owner from being refused when they
+# try the contact form.
+EXEMPT = frozenset(
+    {
+        ("POST", "/api/v1/auth/login"),
+        ("POST", "/api/v1/tickets/form"),
+        ("POST", "/api/v1/tickets/email"),
+    }
+)
 
 
 class CsrfMiddleware:

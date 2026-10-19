@@ -43,13 +43,21 @@ class DatabaseSettings(BaseSettings):
         return value
 
 
-class AuthSettings(BaseSettings):
-    """Just what owner authentication needs, so the API can start (and `/healthz` answer) on a
-    host that has not been given the rest of the configuration yet."""
+class DeploymentSettings(BaseSettings):
+    """Where the process runs and what sits in front of it. Shared by the subset settings below."""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     environment: Environment = "local"
+    # Reverse proxies in front of the API whose X-Forwarded-For entry can be trusted (Render: 1).
+    # 0 means "use the socket address", the only safe value when the API faces clients directly.
+    trusted_proxy_hops: int = Field(default=0, ge=0)
+
+
+class AuthSettings(DeploymentSettings):
+    """Just what owner authentication needs, so the API can start (and `/healthz` answer) on a
+    host that has not been given the rest of the configuration yet."""
+
     # Signs the session tokens. Random, 32+ characters, different in every environment.
     secret_key: SecretStr
     owner_email: str | None = None
@@ -63,9 +71,6 @@ class AuthSettings(BaseSettings):
     login_lockout_max_seconds: int = Field(default=3600, gt=0)
     login_ip_max_attempts: int = Field(default=10, ge=1)
     login_ip_window_seconds: int = Field(default=300, gt=0)
-    # Reverse proxies in front of the API whose X-Forwarded-For entry can be trusted (Render: 1).
-    # 0 means "use the socket address", the only safe value when the API faces clients directly.
-    trusted_proxy_hops: int = Field(default=0, ge=0)
 
     @field_validator("owner_email", "owner_password_hash", mode="before")
     @classmethod
@@ -110,7 +115,44 @@ class JobSettings(BaseSettings):
     job_worker_enabled: bool = True
 
 
-class Settings(DatabaseSettings, AuthSettings, JobSettings):
+class IntakeSettings(DeploymentSettings):
+    """Limits and the shared secret for the two ticket-intake endpoints."""
+
+    # Signs the email-ingestion endpoint's requests. Without it that endpoint answers 503.
+    hmac_secret: SecretStr | None = None
+
+    form_max_body_bytes: int = Field(default=20_000, gt=0)
+    form_message_max_chars: int = Field(default=5_000, gt=0)
+    email_max_body_bytes: int = Field(default=262_144, gt=0)
+    email_body_max_chars: int = Field(default=20_000, gt=0)
+    attachment_max_count: int = Field(default=5, ge=0)
+    attachment_max_bytes: int = Field(default=10_485_760, gt=0)
+    # Per client address, on the public form only.
+    form_ip_max_per_minute: int = Field(default=3, ge=1)
+    form_ip_max_per_hour: int = Field(default=10, ge=1)
+
+    @field_validator("hmac_secret", mode="before")
+    @classmethod
+    def _blank_secret_is_none(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @model_validator(mode="after")
+    def _deployed_hmac_secret_is_long(self) -> "IntakeSettings":
+        if (
+            self.environment in DEPLOYED_ENVIRONMENTS
+            and self.hmac_secret is not None
+            and len(self.hmac_secret.get_secret_value()) < MIN_SECRET_LENGTH
+        ):
+            raise ValueError(
+                f"HMAC_SECRET must be at least {MIN_SECRET_LENGTH} characters "
+                f"when ENVIRONMENT is {self.environment}"
+            )
+        return self
+
+
+class Settings(DatabaseSettings, AuthSettings, JobSettings, IntakeSettings):
     # API
     hmac_secret: SecretStr
     base_url: str

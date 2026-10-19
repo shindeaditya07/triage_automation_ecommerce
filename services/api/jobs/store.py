@@ -61,10 +61,14 @@ class JobStore:
         now: datetime,
         payload: dict[str, Any] | None = None,
         max_attempts: int = 3,
+        conn: AsyncConnection | None = None,
     ) -> tuple[UUID, bool]:
         """Add a job. Returns `(job_id, created)`; `created` is False when a job with the same
         type, ticket and input already exists (whatever state it is in), which is returned
-        instead of adding another."""
+        instead of adding another.
+
+        Pass `conn` to enqueue inside the caller's transaction, so the job exists if and only if
+        the row that needs it does."""
         key = dedupe_key(job_type, ticket_id, input_digest)
         insert_stmt = (
             insert(jobs)
@@ -81,12 +85,20 @@ class JobStore:
             .on_conflict_do_nothing(index_elements=[jobs.c.dedupe_key])
             .returning(jobs.c.job_id)
         )
-        async with self._engine.begin() as conn:
-            created = (await conn.execute(insert_stmt)).scalar()
-            if created is not None:
-                return created, True
-            existing = await conn.execute(select(jobs.c.job_id).where(jobs.c.dedupe_key == key))
-            return existing.scalar_one(), False
+        if conn is not None:
+            return await self._insert_or_find(conn, insert_stmt, key)
+        async with self._engine.begin() as own:
+            return await self._insert_or_find(own, insert_stmt, key)
+
+    @staticmethod
+    async def _insert_or_find(
+        conn: AsyncConnection, insert_stmt: Any, key: str
+    ) -> tuple[UUID, bool]:
+        created = (await conn.execute(insert_stmt)).scalar()
+        if created is not None:
+            return created, True
+        existing = await conn.execute(select(jobs.c.job_id).where(jobs.c.dedupe_key == key))
+        return existing.scalar_one(), False
 
     async def claim(self, worker_id: str, now: datetime) -> Job | None:
         """Take the oldest job that is due, or None. Counts the attempt as it is taken."""
