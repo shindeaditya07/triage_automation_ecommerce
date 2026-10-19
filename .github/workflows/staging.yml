@@ -99,8 +99,9 @@ jobs:
           echo "Triggered API deploy of $IMAGE"
 
       - name: Wait for staging to answer
-        # Free instances can take a few minutes to pull and start. Switch this to /readyz when the
-        # health-endpoints branch lands (readiness also checks the database).
+        # Free instances can take a few minutes to pull and start. Stay on /healthz until staging has
+        # a database and the policy index is built (feature/p2-policy-retrieval): /readyz returns
+        # 503 until both exist, so polling it earlier would fail every deploy.
         run: |
           url="${STAGING_API_URL%/}/healthz"
           for i in $(seq 1 40); do
