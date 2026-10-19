@@ -6,7 +6,7 @@
 
 A **human-in-the-loop** support automation platform that classifies incoming customer messages, retrieves real order and policy data, and drafts grounded replies — where every factual claim is cited and traceable. The store owner approves every reply before it is sent.
 
-[![CI](https://github.com/shindeaditya07/triage_automation_ecommerce_website/actions/workflows/ci.yml/badge.svg)](https://github.com/shindeaditya07/triage_automation_ecommerce_website/actions/workflows/ci.yml)
+[![CI](https://github.com/shindeaditya07/triage_automation_ecommerce/actions/workflows/ci.yml/badge.svg)](https://github.com/shindeaditya07/triage_automation_ecommerce/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -207,7 +207,7 @@ Background pipeline work is handled by a DB-backed job table (`SELECT ... FOR UP
 ## Project Structure
 
 ```
-second_e2e_app/
+triage_automation_ecommerce/
 ├── apps/
 │   └── web/                    # React + TypeScript frontend
 │       └── src/
@@ -262,8 +262,8 @@ second_e2e_app/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/shindeaditya07/triage_automation_ecommerce_website.git
-cd triage_automation_ecommerce_website
+git clone https://github.com/shindeaditya07/triage_automation_ecommerce.git
+cd triage_automation_ecommerce
 ```
 
 ### 2. Configure environment

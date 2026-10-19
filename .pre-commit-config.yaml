@@ -1,0 +1,32 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: [--baseline, .secrets.baseline]
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (changed files)
+        entry: uv run mypy
+        language: system
+        types: [python]
+        files: ^(services/api|evals)/
+      - id: eslint
+        name: eslint
+        entry: bash -c 'cd apps/web && npm run lint'
+        language: system
+        files: ^apps/web/
+        pass_filenames: false
+      - id: prettier
+        name: prettier
+        entry: bash -c 'cd apps/web && npm run format:check'
+        language: system
+        files: ^apps/web/
+        pass_filenames: false
