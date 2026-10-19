@@ -103,7 +103,7 @@ def test_deployed_environments_reject_frozen_clock(
 
 
 def test_deployed_environments_reject_short_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
-    _env(monkeypatch, ENVIRONMENT="staging", SECRET_KEY="short")  # noqa: S106
+    _env(monkeypatch, ENVIRONMENT="staging", SECRET_KEY="short")
     with pytest.raises(ValidationError, match="SECRET_KEY"):
         Settings()  # type: ignore[call-arg]
 

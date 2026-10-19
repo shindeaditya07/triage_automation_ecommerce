@@ -15,6 +15,8 @@ from tests.db.conftest import alembic_config
 EXPECTED_TABLES = {
     "alembic_version",
     "audit_log",
+    "auth_lockout",
+    "auth_refresh_tokens",
     "drafts",
     "jobs",
     "order_snapshots",

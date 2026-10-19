@@ -20,6 +20,7 @@ from sqlalchemy import (
     Integer,
     MetaData,
     Numeric,
+    SmallInteger,
     Table,
     Text,
     UniqueConstraint,
@@ -252,4 +253,30 @@ policy_embeddings = Table(
     Column("embedding", Vector(EMBEDDING_DIMENSIONS), nullable=False),
     _timestamp("created_at", nullable=False, default_now=True),
     UniqueConstraint("policy_id", "policy_version", name="uq_policy_embeddings_policy_id_version"),
+)
+
+# Owner authentication state (migration 0002). There is one owner, so lockout is a single row.
+auth_lockout = Table(
+    "auth_lockout",
+    metadata,
+    Column("id", SmallInteger, primary_key=True),
+    Column("consecutive_failures", Integer, nullable=False, server_default=text("0")),
+    _timestamp("locked_until"),
+    _timestamp("updated_at", nullable=False, default_now=True),
+    CheckConstraint("id = 1", name="single_row"),
+    CheckConstraint("consecutive_failures >= 0", name="failures_non_negative"),
+)
+
+auth_refresh_tokens = Table(
+    "auth_refresh_tokens",
+    metadata,
+    Column("jti", UUID(as_uuid=True), primary_key=True),
+    Column("sid", UUID(as_uuid=True), nullable=False),
+    _timestamp("issued_at", nullable=False),
+    _timestamp("expires_at", nullable=False),
+    _timestamp("revoked_at"),
+    Column("replaced_by", UUID(as_uuid=True)),
+    CheckConstraint("expires_at > issued_at", name="expiry_after_issue"),
+    Index("ix_auth_refresh_tokens_sid", "sid"),
+    Index("ix_auth_refresh_tokens_expires_at", "expires_at"),
 )

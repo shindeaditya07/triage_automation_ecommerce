@@ -2,7 +2,7 @@
 COMPOSE ?= docker compose
 UV ?= uv
 
-.PHONY: help install up down migrate seed lint test eval eval-smoke resilience build \
+.PHONY: help install up down migrate seed owner-hash lint test eval eval-smoke resilience build \
 	deploy-staging deploy-prod audit policy-check
 
 help: ## List targets
@@ -23,6 +23,9 @@ down: ## Stop and remove containers
 
 migrate: ## Run Alembic migrations (uses DATABASE_URL from the environment or .env)
 	$(UV) run alembic upgrade head
+
+owner-hash: ## Prompt for the owner password and print its argon2 hash (for OWNER_PASSWORD_HASH)
+	@$(UV) run python -m scripts.hash_password
 
 seed: ## Build the 31 mock-store edge cases, check them against the contract, write seed.json
 	$(UV) run python -m services.mock-store.seed
