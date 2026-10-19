@@ -21,8 +21,8 @@ up: .env ## Start the full local stack
 down: ## Stop and remove containers
 	$(COMPOSE) down
 
-migrate: ## Run Alembic migrations (not yet implemented)
-	@echo "migrate: not yet implemented (feature/p1-db-schema)"
+migrate: ## Run Alembic migrations (uses DATABASE_URL from the environment or .env)
+	$(UV) run alembic upgrade head
 
 seed: ## Seed the mock store with the 31 edge cases (not yet implemented)
 	@echo "seed: not yet implemented (feature/p1-mock-store)"
