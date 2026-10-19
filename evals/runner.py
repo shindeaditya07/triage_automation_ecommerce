@@ -1,8 +1,9 @@
 """Evaluation runner: `make eval-smoke` (recorded fixtures, no model calls) and `make eval`.
 
-Systems under test are registered by name, so each later branch adds a column to the report:
-the recorded fake run now, the keyword baseline next (feature/p1-keyword-baseline), the live
-model (feature/p2-llm-client). Nothing here reads the clock or the network on its own.
+Systems under test are registered by name, so each branch adds a column to the report: the
+recorded fake run, the keyword baseline, and later the live model (feature/p2-llm-client). Only
+gated systems can fail the run; the baseline is there for comparison. Nothing here reads the clock
+or the network on its own.
 """
 
 import argparse
@@ -17,6 +18,7 @@ from typing import Protocol
 from pydantic import Field
 
 from evals import corpus
+from evals.baseline import BaselinePipeline
 from evals.metrics import (
     ClassificationMetrics,
     EscalationMetrics,
@@ -44,6 +46,7 @@ GROUNDING_VALIDATOR: GroundingValidator | None = None
 
 class Pipeline(Protocol):
     name: str
+    gated: bool  # True: this system must meet the escalation recall floor or the run fails.
 
     def predict(self, ticket: LabeledTicket) -> Prediction: ...
 
@@ -52,6 +55,7 @@ class RecordedPipeline:
     """Classification from the FakeLLMClient; routing from the recorded outcome."""
 
     name = "recorded-fake"
+    gated = True
 
     def __init__(self, client: FakeLLMClient, recorded: Sequence[RecordedPrediction]) -> None:
         self._client = client
@@ -70,6 +74,7 @@ class RecordedPipeline:
 
 class SystemReport(StrictModel):
     system: str
+    gated: bool
     classification: ClassificationMetrics
     escalation: EscalationMetrics
 
@@ -127,6 +132,7 @@ def _evaluate(
         reports.append(
             SystemReport(
                 system=pipeline.name,
+                gated=pipeline.gated,
                 classification=classification_metrics(tickets, predictions),
                 escalation=escalation_metrics(tickets, predictions),
             )
@@ -193,7 +199,7 @@ def run(
     systems: list[SystemReport] = []
     if not problems:
         systems = _evaluate(tickets, pipelines)
-        for system in systems:
+        for system in (s for s in systems if s.gated):
             value = system.escalation.recall.rate
             if value is None or value < ESCALATION_RECALL_FLOOR:
                 failures.append(
@@ -221,6 +227,36 @@ def _fmt(value: Rate | None) -> str:
     return f"{value.rate:.3f} ({value.low:.2f}-{value.high:.2f}) n={value.total}"
 
 
+def _comparison(systems: Sequence[SystemReport], mode: str) -> list[str]:
+    rows: list[tuple[str, Callable[[SystemReport], Rate]]] = [
+        ("Intent accuracy", lambda s: s.classification.accuracy),
+        ("Urgency accuracy", lambda s: s.classification.urgency_accuracy),
+        ("Escalation recall", lambda s: s.escalation.recall),
+        ("Escalation precision", lambda s: s.escalation.precision),
+        ("No-draft escalation recall", lambda s: s.escalation.no_draft_recall),
+        ("Outcome accuracy", lambda s: s.escalation.outcome_accuracy),
+    ]
+    lines = [
+        "## Comparison with the keyword baseline",
+        "",
+        *(
+            [
+                "Smoke mode: the recorded-fake column replays synthetic fixtures with seeded "
+                "mistakes, so it measures the harness, not a model. Only the keyword-baseline "
+                "column is a real measurement.",
+                "",
+            ]
+            if mode == "smoke"
+            else []
+        ),
+        "| Metric | " + " | ".join(s.system for s in systems) + " |",
+        "|---|" + "---|" * len(systems),
+    ]
+    for label, getter in rows:
+        lines.append(f"| {label} | " + " | ".join(_fmt(getter(s)) for s in systems) + " |")
+    return [*lines, ""]
+
+
 def render_markdown(report: Report) -> str:
     meta = report.meta
     lines = [
@@ -236,10 +272,13 @@ def render_markdown(report: Report) -> str:
     ]
     for failure in report.failures:
         lines.append(f"- FAILURE: {failure}")
+    if len(report.systems) > 1:
+        lines += _comparison(report.systems, meta.mode)
     for system in report.systems:
         esc = system.escalation
+        label = "" if system.gated else " (comparison only, does not gate the run)"
         lines += [
-            f"## {system.system}",
+            f"## {system.system}{label}",
             "",
             "| Metric | Value (95% Wilson) |",
             "|---|---|",
@@ -286,7 +325,7 @@ def save(report: Report, base: Path = RESULTS_DIR) -> Path:
 def smoke_pipelines() -> list[Pipeline]:
     recorded = corpus.load_recorded()
     client = FakeLLMClient.from_jsonl(corpus.RECORDED_PATH)
-    return [RecordedPipeline(client, recorded)]
+    return [RecordedPipeline(client, recorded), BaselinePipeline()]
 
 
 def main(
