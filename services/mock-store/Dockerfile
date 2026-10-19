@@ -12,6 +12,11 @@ WORKDIR /app
 RUN useradd --system --uid 10001 --no-create-home appuser
 COPY --from=builder /app/.venv /app/.venv
 COPY services/__init__.py services/__init__.py
+# The mock store validates its responses with the shared order models and policy constants.
+COPY services/api/__init__.py services/api/__init__.py
+COPY services/api/models services/api/models
+COPY services/api/policy_constants.py services/api/policy_constants.py
+COPY policy_constants.yaml policy_constants.yaml
 COPY services/mock-store services/mock-store
 USER appuser
 EXPOSE 8001

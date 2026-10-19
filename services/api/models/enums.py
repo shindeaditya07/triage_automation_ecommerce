@@ -101,3 +101,53 @@ class JobStatus(StrEnum):
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     DEAD = "dead"
+
+
+class OrderStatus(StrEnum):
+    PLACED = "placed"
+    DISPATCHED = "dispatched"
+    DELIVERED = "delivered"
+    CANCELLED = "cancelled"
+    FAILED_DELIVERY = "failed_delivery"
+
+
+class PaymentMethod(StrEnum):
+    UPI = "upi"
+    CARD = "card"
+    NETBANKING = "netbanking"
+    COD = "cod"
+
+
+class ShippingTier(StrEnum):
+    METRO = "metro"
+    STANDARD = "standard"
+    REMOTE = "remote"
+
+
+class ItemFlag(StrEnum):
+    FINAL_SALE = "final_sale"
+    CONSUMABLE = "consumable"
+    PERSONALIZED = "personalized"
+    GIFT_CARD = "gift_card"
+    SMALL_APPLIANCE = "small_appliance"
+
+
+class RefundMethod(StrEnum):
+    ORIGINAL_PAYMENT = "original_payment"
+    UPI = "upi"
+    NEFT = "neft"
+    STORE_CREDIT = "store_credit"
+
+
+class CancelledBy(StrEnum):
+    CUSTOMER = "customer"
+    STORE = "store"
+
+
+class CourierEventStatus(StrEnum):
+    PICKED_UP = "picked_up"
+    IN_TRANSIT = "in_transit"
+    OUT_FOR_DELIVERY = "out_for_delivery"
+    DELIVERY_ATTEMPTED = "delivery_attempted"
+    DELIVERED = "delivered"
+    RETURNED_TO_WAREHOUSE = "returned_to_warehouse"

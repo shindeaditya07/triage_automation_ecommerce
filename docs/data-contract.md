@@ -3,7 +3,7 @@
 **Version:** 1.0 (2026-10-19)
 **Source:** `spec.md` v1.1 section 15, with the assumptions listed at the end of this file.
 
-The mock store (`services/mock-store`) and any future real-store adapter must return exactly these shapes. The pipeline and the grounding validator may cite **only fields that exist here**; a claim about anything else is ungrounded. Pydantic models for these shapes are written in `feature/p1-db-schema` and `feature/p1-mock-store` and must match this file field for field.
+The mock store (`services/mock-store`) and any future real-store adapter must return exactly these shapes. The pipeline and the grounding validator may cite **only fields that exist here**; a claim about anything else is ungrounded. The Pydantic models for these shapes are in `services/api/models/order.py` and must match this file field for field. The mock store seeds its data through them, so a seeded order that breaks a rule below fails at startup.
 
 ## Conventions
 
