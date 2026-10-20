@@ -100,6 +100,8 @@ tickets = Table(
     Column("flags", ARRAY(Text), nullable=False, server_default=text("'{}'::text[]")),
     Column("escalation_reason", Text),
     Column("failure_reason", Text),
+    # What the order lookup found (migration 0004). Null until the lookup has run.
+    Column("order_lookup", JSONB),
     _timestamp("created_at", nullable=False, default_now=True),
     _timestamp("updated_at", nullable=False, default_now=True),
     _timestamp("deleted_at"),

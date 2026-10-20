@@ -5,12 +5,13 @@ changes nothing the second time."""
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from services.api.db.tables import audit_log, tickets
+from services.api.context.lookup import ContextLookup, LookupResult
+from services.api.db.tables import audit_log, order_snapshots, tickets
 from services.api.llm.client import CallRecord
 from services.api.models.enums import Flag, Intent, Sentiment, TicketStatus, Urgency
 from services.api.models.ticket import Classification
@@ -23,6 +24,9 @@ class TicketText:
     subject: str | None
     body: str
     classification: Classification | None = None  # set once the ticket is classified
+    customer_email: str = ""
+    order_id_hint: str | None = None
+    lookup_done: bool = False
 
 
 class PipelineStore:
@@ -42,6 +46,9 @@ class PipelineStore:
                         tickets.c.confidence,
                         tickets.c.sentiment,
                         tickets.c.flags,
+                        tickets.c.customer_email,
+                        tickets.c.order_id_hint,
+                        tickets.c.order_lookup.is_not(None).label("lookup_done"),
                     ).where(tickets.c.ticket_id == ticket_id, tickets.c.deleted_at.is_(None))
                 )
             ).first()
@@ -57,7 +64,14 @@ class PipelineStore:
                 flags=[Flag(flag) for flag in row.flags],
             )
         return TicketText(
-            ticket_id, TicketStatus(row.status), row.subject, row.body, classification
+            ticket_id,
+            TicketStatus(row.status),
+            row.subject,
+            row.body,
+            classification,
+            row.customer_email,
+            row.order_id_hint,
+            row.lookup_done,
         )
 
     async def save_classification(
@@ -115,6 +129,63 @@ class PipelineStore:
         if flags is not None:
             values["flags"] = [flag.value for flag in flags]
         return await self._advance(ticket_id, values, "ticket.escalated", payload, now, from_status)
+
+    async def save_order_lookup(
+        self, ticket_id: UUID, lookup: ContextLookup, now: datetime
+    ) -> bool:
+        """Record what the lookup found: the order snapshot (only when an order was found), the
+        lookup summary on the ticket, and `order_mismatch` on a mismatch. The ticket stays
+        `classified`. False when the lookup was already recorded, in which case nothing changes."""
+        snapshot_id = uuid4() if lookup.order is not None else None
+        summary: dict[str, Any] = {
+            "result": lookup.result.value,
+            "order_id": lookup.order_id,
+            "candidates": lookup.candidates,
+            "snapshot_id": str(snapshot_id) if snapshot_id else None,
+            "history": lookup.history.model_dump(mode="json") if lookup.history else None,
+        }
+        async with self._engine.begin() as conn:
+            current = (
+                await conn.execute(
+                    select(tickets.c.flags)
+                    .where(
+                        tickets.c.ticket_id == ticket_id,
+                        tickets.c.status == TicketStatus.CLASSIFIED.value,
+                        tickets.c.order_lookup.is_(None),
+                    )
+                    .with_for_update()
+                )
+            ).first()
+            if current is None:
+                return False
+            flags = list(current.flags)
+            if lookup.result is LookupResult.MISMATCH and Flag.ORDER_MISMATCH.value not in flags:
+                flags.append(Flag.ORDER_MISMATCH.value)
+            if snapshot_id is not None and lookup.order is not None:
+                await conn.execute(
+                    insert(order_snapshots).values(
+                        snapshot_id=snapshot_id,
+                        ticket_id=ticket_id,
+                        order_id=lookup.order.order_id,
+                        taken_at=now,
+                        data=lookup.order.model_dump(mode="json"),
+                    )
+                )
+            await conn.execute(
+                update(tickets)
+                .where(tickets.c.ticket_id == ticket_id)
+                .values(order_lookup=summary, flags=flags, updated_at=now)
+            )
+            await conn.execute(
+                insert(audit_log).values(
+                    ticket_id=ticket_id,
+                    event_type="ticket.order_lookup",
+                    actor="system",
+                    payload=summary,
+                    occurred_at=now,
+                )
+            )
+        return True
 
     async def _advance(
         self,

@@ -47,6 +47,37 @@ escalating; a false match costs the owner one read.
 The handler works from the ticket's state, so a job that stopped between the two steps resumes
 at the escalation check without a second model call.
 
+## Step 3: order lookup (`services/api/context/`)
+
+Runs for a ticket that passed step 2. It finds the order the ticket is about, fetches it from the
+store (`GET /orders/{order_id}?email=<sender>`, explicit timeout) and records what it found.
+
+1. **Candidates:** order IDs in the form field, subject and body (`RD-10001`, also `rd10001`,
+   `RD 10001`, look-alike characters). A bare number is never treated as an order ID.
+2. **One candidate:** ask the store for it with the sender's address.
+3. **Several candidates:** do not guess (`ambiguous`).
+4. **None named:** a sender with exactly one order on file gets that order; several orders is
+   `ambiguous`; none, or an unknown sender, is `no_order`.
+
+| Result | Meaning | What is kept |
+|---|---|---|
+| `found` | the order exists and belongs to the sender | a snapshot row in `order_snapshots` (every draft will reference it) |
+| `not_found` | the id does not exist | the id the customer wrote |
+| `mismatch` | the id belongs to another address | the id, and the `order_mismatch` flag. **No order data**, here or in the audit trail |
+| `ambiguous` | several possible orders | how many candidates |
+| `no_order` | nothing to look up | nothing |
+
+The summary (result, id, candidate count, snapshot id, the customer's order and complaint counts)
+is stored in `tickets.order_lookup` (migration 0004) and in the `ticket.order_lookup` audit event.
+`order_lookup` is null until the step has run, which is how a retried job knows not to repeat it.
+What each result means for the ticket (escalate, draft, ask) is the next step, post-lookup
+escalation.
+
+If the store cannot be reached (timeout, connection error, 5xx) the job fails and is retried with
+the job runner's backoff; after its attempts it goes dead and the ticket shows as failed with the
+reason. A store reply that breaks the data contract fails the job at once, since retrying cannot
+fix it.
+
 ## Not wired yet
 
 `make_process_ticket_handler` (`services/api/pipeline/process.py`) exists but the app does not

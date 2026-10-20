@@ -1,9 +1,11 @@
-"""The `process_ticket` job handler: classify, then the pre-lookup escalation check. Later branches
-add the steps after."""
+"""The `process_ticket` job handler: classify, check for pre-lookup escalation, look up the order.
+Later branches add the steps after."""
 
 import logging
 
 from services.api.clock import Clock
+from services.api.context.client import OrderStoreClient, StoreContractError
+from services.api.context.lookup import look_up_context
 from services.api.escalation.pre_lookup import decide
 from services.api.jobs.worker import Handler, PermanentJobError
 from services.api.llm.client import LLMClient
@@ -15,7 +17,9 @@ from services.api.pipeline.store import PipelineStore
 log = logging.getLogger("replydesk.pipeline")
 
 
-def make_process_ticket_handler(store: PipelineStore, client: LLMClient, clock: Clock) -> Handler:
+def make_process_ticket_handler(
+    store: PipelineStore, client: LLMClient, orders: OrderStoreClient, clock: Clock
+) -> Handler:
     """Each step reads the ticket's state and does only the step that state is waiting for, so a
     job that stopped half way picks up where it left off and one that ran twice does nothing."""
 
@@ -60,5 +64,21 @@ def make_process_ticket_handler(store: PipelineStore, client: LLMClient, clock: 
                     },
                 )
                 log.info("ticket escalated before lookup: %s", decision.reason)
+                return
+
+            if not ticket.lookup_done:
+                try:
+                    lookup = await look_up_context(
+                        orders,
+                        email=ticket.customer_email,
+                        subject=ticket.subject,
+                        body=ticket.body,
+                        order_id_hint=ticket.order_id_hint,
+                    )
+                except StoreContractError as exc:
+                    raise PermanentJobError(str(exc)) from None
+                # StoreUnavailable is not caught: the job is retried later.
+                await store.save_order_lookup(ticket.ticket_id, lookup, clock())
+                log.info("order lookup: %s", lookup.result.value)
 
     return handle
