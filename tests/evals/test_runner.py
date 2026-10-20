@@ -228,3 +228,10 @@ def test_markdown_compares_the_systems_and_warns_that_the_fixture_column_is_synt
     assert "| Metric | recorded-fake | keyword-baseline |" in text
     assert "synthetic fixtures" in text
     assert "comparison only, does not gate the run" in text
+
+
+def test_the_recorded_system_uses_the_real_pre_lookup_rules() -> None:
+    """T041 breaks out of the message delimiter. The recording missed it; the rules do not."""
+    report = _run()
+    system = next(s for s in report.systems if s.system == "recorded-fake")
+    assert "T041" not in system.escalation.missed

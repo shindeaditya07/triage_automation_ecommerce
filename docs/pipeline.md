@@ -19,8 +19,33 @@ changes nothing the second time.
   `ticket.escalated`. The owner sees the original message; no draft is made.
 - The model may not set `high_value`: that flag comes from the order's value after the order is
   read. If the model returns it, it is removed and listed in the audit event as `dropped_flags`.
-- Whether a *valid* classification still needs the owner (low confidence, a legal threat, intent
-  `other`) is decided by the next step, pre-lookup escalation.
+- Whether a *valid* classification still needs the owner is decided by step 2.
+
+## Step 2: pre-lookup escalation (`services/api/escalation/pre_lookup.py`)
+
+Runs right after classification, with no model call and no order lookup. The ticket goes to the
+owner with **no draft** when ANY of these holds (spec 14.1):
+
+| Reason | Trigger |
+|---|---|
+| `abusive`, `legal_threat`, `suspected_fraud` | the classifier flag OR the keyword backstop (ESC-8.2) |
+| `prompt_injection` | the classifier flag OR the structural scan (`escalation/injection.py`) |
+| `low_confidence` | confidence strictly below 0.70 |
+| `intent_other` | intent is `other` |
+
+Two independent sources back the first four, so a flag the model missed is still caught. Flags
+the deterministic checks found are added to the ticket's flags. All reasons that apply are
+recorded, comma-joined, in `escalation_reason`, and the audit event `ticket.escalated` (stage
+`pre_lookup`) lists the backstop rules and injection signals that matched. The classification is
+kept on the escalated ticket so the owner sees it with the original message.
+
+The structural scan looks for phrases an ordinary customer has no reason to write: our own
+delimiter tags, chat-template tokens, a `system:` turn, "ignore your instructions", "you are now
+in admin mode", asking for the prompt or credentials. Like the backstop it leans towards
+escalating; a false match costs the owner one read.
+
+The handler works from the ticket's state, so a job that stopped between the two steps resumes
+at the escalation check without a second model call.
 
 ## Not wired yet
 
