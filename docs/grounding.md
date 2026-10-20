@@ -11,9 +11,30 @@ A `ValidationResult` lists named `RuleFailure`s (rule ID, the offending span, on
 `citation_missing` when the value is right but no citation backs it). It never returns a bare
 pass or fail. The rules fail closed: a value they cannot place is a failure.
 
-**Status in the pipeline:** the validator exists and is scored by the eval harness, but nothing calls it
-yet. A stored draft is still unchecked (`grounding_result` is NULL). Wiring it in, with the retry and
-the fallback template, is the next branch.
+**Status in the pipeline:** the validator and the judge exist and are tested, but nothing in the
+pipeline calls them yet. A stored draft is still unchecked (`grounding_result` is NULL). Wiring
+them in, with the retry and the fallback template, is the next branch (`p3-retry-and-fallback`).
+
+## The judge and the combined check
+
+`check_grounding(client, reply, citations, context, passages)` in `check.py` is the single entry
+point. It returns a `GroundingResult` (stored with the draft) and the judge call for the cost record.
+
+1. The deterministic validator runs. If it finds anything the draft is blocked and the judge is **not
+   asked**: nothing it said could change the outcome, and the call would cost money.
+2. If the validator passes, the judge model (`judge.py`, prompt `prompts/judge.md`) reads the reply,
+   its citations, the order (without the customer's email) and the retrieved passages. It returns
+   `grounded`, a list of issues and a confidence. Any issue blocks the draft. The judge cannot
+   approve anything the validator blocked.
+3. If the judge cannot answer (timeout, rejected request, unusable output) the draft is blocked with
+   `judge_error` set. A draft is never waved through because the check was unavailable.
+
+The judge's confidence is stored but does not block on its own. The prompt tells the judge to treat
+doubt as unsupported. Nothing yet decides what to do with a draft blocked only because the judge was
+down; that is the retry branch's call.
+
+With the all-Gemini setup the drafter and the judge are the same model family
+(`JUDGE_SAME_FAMILY_OK=true`), so the judge is a weaker independent check than spec 13.2 intends.
 
 ## The rules
 
@@ -60,9 +81,9 @@ Read this before trusting a green result.
   seeded bad drafts were written first and the lists were tuned after seeing them, so catching all
   40 is a floor, not evidence of coverage. The good drafts are the check against false blocks;
   both sets should grow whenever a real draft is mis-judged.
-- **Meaning is not checked.** "Your refund is on its way" when the order shows no refund fails only
-  if a pattern matches. The judge (a separate model, planned in this phase) covers meaning, and it
-  can only add blocks.
+- **Meaning is checked only by the judge.** "Your refund is on its way" when the order shows no
+  refund fails the rules only if a pattern matches. The judge covers meaning, but it is a model: it
+  can miss things, it has no seeded corpus yet, and it has not been run against a live model.
 - **Numbers written as words** are understood only for 0 to 10, and only for durations.
 - **Names** are the capitalised words in the middle of a sentence that no source mentions. A name
   at the start of a sentence is not checked.
