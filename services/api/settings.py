@@ -120,6 +120,15 @@ class JobSettings(BaseSettings):
     job_worker_enabled: bool = True
 
 
+class StoreSettings(BaseSettings):
+    """Where the order store is, and how long to wait for it."""
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    mock_store_url: str = "http://localhost:8001"
+    mock_store_timeout_seconds: float = Field(default=5.0, gt=0)
+
+
 class IntakeSettings(DeploymentSettings):
     """Limits and the shared secret for the two ticket-intake endpoints."""
 
@@ -254,7 +263,9 @@ class LLMSettings(BaseSettings):
         return None
 
 
-class Settings(DatabaseSettings, AuthSettings, JobSettings, IntakeSettings, LLMSettings):
+class Settings(
+    DatabaseSettings, AuthSettings, JobSettings, IntakeSettings, LLMSettings, StoreSettings
+):
     # API
     hmac_secret: SecretStr
     base_url: str
@@ -266,7 +277,6 @@ class Settings(DatabaseSettings, AuthSettings, JobSettings, IntakeSettings, LLMS
     store_timezone: str = "Asia/Kolkata"
 
     # Mock store and time
-    mock_store_url: str = "http://localhost:8001"
     frozen_now: datetime | None = None
 
     # Retention (the job settings are in JobSettings)

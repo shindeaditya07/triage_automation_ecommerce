@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from services.api.context.client import OrderStoreClient
 from services.api.jobs.worker import PermanentJobError
 from services.api.llm.client import CallRecord
 from services.api.llm.errors import LLMRequestError
@@ -23,6 +24,7 @@ from services.api.models.records import Job
 from services.api.models.ticket import Classification
 from services.api.pipeline.process import make_process_ticket_handler
 from services.api.pipeline.store import PipelineStore
+from tests.context.support import store_client
 from tests.db.jobs_support import T0, make_ticket
 from tests.pipeline.test_classify_stage import Scripted, good
 
@@ -127,7 +129,7 @@ async def test_get_text_hides_a_deleted_ticket(engine: AsyncEngine) -> None:
 async def test_the_handler_classifies_a_new_ticket_once(engine: AsyncEngine) -> None:
     ticket_id = await make_ticket(engine)
     client = Scripted([good(), good()])
-    handle = make_process_ticket_handler(PipelineStore(engine), client, lambda: T0)
+    handle = handler(engine, client)
     await handle(job_for(ticket_id))
     await handle(job_for(ticket_id))  # a second run changes nothing
     assert len(client.requests) == 1
@@ -137,17 +139,24 @@ async def test_the_handler_classifies_a_new_ticket_once(engine: AsyncEngine) -> 
 async def test_the_handler_escalates_when_the_model_fails(engine: AsyncEngine) -> None:
     ticket_id = await make_ticket(engine)
     client = Scripted([LLMRequestError(401)])
-    await make_process_ticket_handler(PipelineStore(engine), client, lambda: T0)(job_for(ticket_id))
+    await handler(engine, client)(job_for(ticket_id))
     ticket = await row(engine, ticket_id)
     assert (ticket.status, ticket.escalation_reason) == ("escalated", "llm_error:LLMRequestError")
 
 
 async def test_the_handler_gives_up_on_a_missing_ticket(engine: AsyncEngine) -> None:
-    handle = make_process_ticket_handler(PipelineStore(engine), Scripted([]), lambda: T0)
+    handle = handler(engine, Scripted([]))
     with pytest.raises(PermanentJobError):
         await handle(job_for(None))
     with pytest.raises(PermanentJobError):
         await handle(job_for(uuid4()))
+
+
+def handler(engine: AsyncEngine, client: Scripted, orders: OrderStoreClient | None = None):  # type: ignore[no-untyped-def]
+    """The process_ticket handler over the in-process mock store, unless `orders` is given."""
+    return make_process_ticket_handler(
+        PipelineStore(engine), client, orders or store_client()[0], lambda: T0
+    )
 
 
 async def set_body(engine: AsyncEngine, ticket_id: UUID, body: str) -> None:
@@ -156,10 +165,6 @@ async def set_body(engine: AsyncEngine, ticket_id: UUID, body: str) -> None:
             text("UPDATE tickets SET body = :body WHERE ticket_id = :id"),
             {"body": body, "id": ticket_id},
         )
-
-
-def handler(engine: AsyncEngine, client: Scripted):  # type: ignore[no-untyped-def]
-    return make_process_ticket_handler(PipelineStore(engine), client, lambda: T0)
 
 
 async def test_a_low_confidence_ticket_is_classified_then_escalated(engine: AsyncEngine) -> None:
@@ -208,9 +213,10 @@ async def test_a_job_that_stopped_after_classifying_resumes_at_the_escalation_ch
     assert (await row(engine, ticket_id)).escalation_reason == "intent_other"
 
 
-async def test_a_clean_classified_ticket_is_left_alone(engine: AsyncEngine) -> None:
+async def test_a_clean_ticket_is_classified_and_looked_up_once(engine: AsyncEngine) -> None:
     ticket_id = await make_ticket(engine)
     await handler(engine, Scripted([good()]))(job_for(ticket_id))
     assert (await row(engine, ticket_id)).status == "classified"
     await handler(engine, Scripted([]))(job_for(ticket_id))
-    assert len(await events(engine, ticket_id)) == 1
+    kinds = [event.event_type for event in await events(engine, ticket_id)]
+    assert kinds == ["ticket.classified", "ticket.order_lookup"]
