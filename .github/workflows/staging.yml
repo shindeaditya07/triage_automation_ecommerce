@@ -119,10 +119,11 @@ jobs:
     name: Smoke Eval
     needs: deploy
     runs-on: ubuntu-latest
-    # Allowed to fail until the eval harness exists (feature/p1-eval-harness).
-    continue-on-error: true
     env:
-      STAGING_API_URL: ${{ vars.STAGING_API_URL }}
+      LLM_PROVIDER: fake
+      FROZEN_NOW: "2026-10-15T12:00:00Z"
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
       - run: make eval-smoke
