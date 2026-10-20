@@ -5,6 +5,7 @@ from typing import Any
 
 import httpx
 
+from services.api.llm.client import EmbedKind
 from services.api.llm.errors import LLMInvalidOutputError
 from services.api.llm.providers.base import RawCompletion, post_json, token_count
 
@@ -80,7 +81,9 @@ class OpenAIEmbedder:
         self.model = model
         self._url = f"{base_url.rstrip('/')}/v1/embeddings"
 
-    async def embed(self, texts: list[str], dimensions: int) -> tuple[list[list[float]], int]:
+    async def embed(
+        self, texts: list[str], dimensions: int, kind: EmbedKind
+    ) -> tuple[list[list[float]], int]:
         vectors: list[list[float]] = []
         tokens = 0
         headers = {"authorization": f"Bearer {self._api_key}", "content-type": "application/json"}

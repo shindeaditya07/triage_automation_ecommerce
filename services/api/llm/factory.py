@@ -11,7 +11,8 @@ from services.api.llm.gateway import ModelGateway, ModelRoute
 from services.api.llm.pricing import Price
 from services.api.llm.prompts import PromptRegistry
 from services.api.llm.providers.anthropic import AnthropicChat
-from services.api.llm.providers.base import ChatModel
+from services.api.llm.providers.base import ChatModel, Embedder
+from services.api.llm.providers.gemini import GeminiEmbedder
 from services.api.llm.providers.openai import OpenAIChat, OpenAIEmbedder
 from services.api.llm.resilience import CircuitBreaker, RetryPolicy
 from services.api.settings import LLMSettings, Provider
@@ -23,6 +24,12 @@ def _chat(provider: Provider | None, http: httpx.AsyncClient, key: str, model: s
     if provider == "openai":
         return OpenAIChat(http, key, model)
     raise LLMConfigError(f"no adapter for provider {provider!r}")
+
+
+def _embedder(settings: LLMSettings, http: httpx.AsyncClient, key: str) -> Embedder:
+    if settings.embed_provider == "gemini":
+        return GeminiEmbedder(http, key, settings.embed_model)
+    return OpenAIEmbedder(http, key, settings.embed_model)
 
 
 def build_llm_client(
@@ -75,7 +82,7 @@ def build_llm_client(
     return ModelGateway(
         drafter=drafter,
         judge=judge,
-        embedder=OpenAIEmbedder(http, embed_key.get_secret_value(), settings.embed_model),
+        embedder=_embedder(settings, http, embed_key.get_secret_value()),
         embed_price=Price(settings.embed_price_inr_per_1m, Decimal(0)),
         embed_breaker=breaker(),
         embed_dimensions=settings.embed_dimensions,

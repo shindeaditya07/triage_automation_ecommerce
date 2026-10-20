@@ -17,6 +17,11 @@ from services.api.models.records import EMBEDDING_DIMENSIONS
 
 Environment = Literal["local", "ci", "staging", "nonprod", "production"]
 Provider = Literal["fake", "anthropic", "openai"]
+EmbedProvider = Literal["openai", "gemini"]
+DEFAULT_EMBED_MODELS: dict[EmbedProvider, str] = {
+    "openai": "text-embedding-3-small",
+    "gemini": "gemini-embedding-001",
+}
 DEPLOYED_ENVIRONMENTS = {"staging", "nonprod", "production"}
 MIN_SECRET_LENGTH = 32
 
@@ -188,10 +193,12 @@ class LLMSettings(BaseSettings):
     # By default the judge must come from a different provider than the drafter, so a model never
     # grades its own output. Set true only to accept that on purpose.
     judge_same_family_ok: bool = False
-    # Embeddings use OpenAI. The key falls back to LLM_API_KEY / JUDGE_API_KEY when one of them
-    # is an OpenAI key.
+    # Embeddings come from OpenAI or Gemini (EMBED_PROVIDER). With OpenAI the key falls back to
+    # LLM_API_KEY / JUDGE_API_KEY when one of them is an OpenAI key; Gemini needs EMBED_API_KEY.
+    embed_provider: EmbedProvider = "openai"
     embed_api_key: SecretStr | None = None
-    embed_model: str = "text-embedding-3-small"
+    # Blank means the provider's default model (see DEFAULT_EMBED_MODELS).
+    embed_model: str = ""
     embed_dimensions: int = EMBEDDING_DIMENSIONS
     llm_timeout_seconds: int = Field(default=30, gt=0)
     llm_max_attempts: int = Field(default=3, ge=1)
@@ -204,6 +211,22 @@ class LLMSettings(BaseSettings):
     judge_input_price_inr_per_1m: Decimal = Field(default=Decimal(0), ge=0)
     judge_output_price_inr_per_1m: Decimal = Field(default=Decimal(0), ge=0)
     embed_price_inr_per_1m: Decimal = Field(default=Decimal(0), ge=0)
+
+    @field_validator("embed_provider", mode="before")
+    @classmethod
+    def _normalise_embed_provider(cls, value: object) -> object:
+        return value.strip().lower() if isinstance(value, str) else value
+
+    @field_validator("embed_model", mode="before")
+    @classmethod
+    def _strip_embed_model(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def _default_embed_model(self) -> "LLMSettings":
+        if not self.embed_model:
+            self.embed_model = DEFAULT_EMBED_MODELS[self.embed_provider]
+        return self
 
     @field_validator("llm_provider", "judge_provider", mode="before")
     @classmethod
@@ -247,19 +270,24 @@ class LLMSettings(BaseSettings):
                 "output (set JUDGE_SAME_FAMILY_OK=true to accept that)"
             )
         if self.embedding_key() is None:
+            hint = (
+                ", or use an OpenAI key as LLM_API_KEY or JUDGE_API_KEY"
+                if self.embed_provider == "openai"
+                else ""
+            )
             raise ValueError(
-                "embeddings need an OpenAI key: set EMBED_API_KEY, or use an OpenAI key as "
-                "LLM_API_KEY or JUDGE_API_KEY"
+                f"embeddings ({self.embed_provider}) need a key: set EMBED_API_KEY{hint}"
             )
         return self
 
     def embedding_key(self) -> SecretStr | None:
         if self.embed_api_key:
             return self.embed_api_key
-        if self.llm_provider == "openai":
-            return self.llm_api_key
-        if self.judge_provider == "openai":
-            return self.judge_api_key
+        if self.embed_provider == "openai":
+            if self.llm_provider == "openai":
+                return self.llm_api_key
+            if self.judge_provider == "openai":
+                return self.judge_api_key
         return None
 
 

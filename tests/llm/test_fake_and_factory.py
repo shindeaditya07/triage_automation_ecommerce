@@ -49,6 +49,9 @@ def test_the_factory_gives_a_fake_by_default() -> None:
     assert isinstance(build_llm_client(LLMSettings()), FakeLLMClient)
 
 
+GEMINI_KEY = "g1"  # pragma: allowlist secret
+
+
 def real_settings(**overrides: object) -> LLMSettings:
     values: dict[str, object] = {
         "llm_provider": "anthropic",
@@ -67,6 +70,26 @@ async def test_the_factory_builds_a_gateway_that_uses_the_given_client() -> None
     assert isinstance(client, ModelGateway)
     await client.aclose()
     assert not http.is_closed  # it was lent to the gateway, so the gateway does not close it
+    await http.aclose()
+
+
+async def test_the_factory_embeds_with_gemini_when_asked() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        values = [0.0] * (EMBEDDING_DIMENSIONS - 1) + [2.0]
+        return httpx.Response(200, json={"embeddings": [{"values": values}]})
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    settings = real_settings(
+        embed_provider="gemini", embed_api_key=SecretStr(GEMINI_KEY)
+    )  # pragma: allowlist secret
+    client = build_llm_client(settings, http)
+    result = await client.embed(["a"], kind="query")
+    assert seen[0].url.host == "generativelanguage.googleapis.com"
+    assert result.record.model == "gemini-embedding-001"
+    assert result.value[0][-1] == 1.0  # scaled to unit length
     await http.aclose()
 
 

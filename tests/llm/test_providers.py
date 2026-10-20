@@ -13,6 +13,7 @@ from services.api.llm.errors import (
     LLMTimeoutError,
 )
 from services.api.llm.providers.anthropic import AnthropicChat
+from services.api.llm.providers.gemini import GeminiEmbedder
 from services.api.llm.providers.openai import OpenAIChat, OpenAIEmbedder
 
 pytestmark = pytest.mark.anyio
@@ -192,7 +193,7 @@ async def test_embeddings_batch_check_length_and_sum_tokens() -> None:
 
     async with client(handler) as http:
         vectors, tokens = await OpenAIEmbedder(http, KEY, "emb").embed(
-            [f"t{i}" for i in range(250)], 4
+            [f"t{i}" for i in range(250)], 4, "document"
         )
     assert sizes == [100, 100, 50] and tokens == 250
     assert [v[0] for v in vectors[:3]] == [0.0, 1.0, 2.0]
@@ -204,4 +205,96 @@ async def test_embeddings_of_the_wrong_width_or_count_are_rejected() -> None:
     for payload in (wrong_width, wrong_count):
         async with client(reply(200, payload)) as http:
             with pytest.raises(LLMInvalidOutputError):
-                await OpenAIEmbedder(http, KEY, "emb").embed(["a"], 4)
+                await OpenAIEmbedder(http, KEY, "emb").embed(["a"], 4, "document")
+
+
+# --- Gemini embeddings --------------------------------------------------------------------------
+
+
+def _gemini_reply(width: int, tokens: int = 5) -> Any:
+    def handler(request: httpx.Request) -> httpx.Response:
+        count = len(json.loads(request.content)["requests"])
+        # Not unit length on purpose: the adapter must scale it.
+        embeddings = [{"values": [3.0, 4.0] + [0.0] * (width - 2)} for _ in range(count)]
+        return httpx.Response(
+            200, json={"embeddings": embeddings, "usageMetadata": {"promptTokenCount": tokens}}
+        )
+
+    return handler
+
+
+async def test_gemini_embeddings_ask_for_the_width_and_task_and_return_unit_vectors() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return _gemini_reply(4)(request)
+
+    async with client(handler) as http:
+        vectors, tokens = await GeminiEmbedder(http, KEY, "gemini-embedding-001").embed(
+            ["a", "b"], 4, "query"
+        )
+    [request] = seen
+    assert request.url.path == "/v1beta/models/gemini-embedding-001:batchEmbedContents"
+    assert request.headers["x-goog-api-key"] == KEY and "authorization" not in request.headers
+    sent = json.loads(request.content)["requests"]
+    assert [r["content"]["parts"][0]["text"] for r in sent] == ["a", "b"]
+    assert {(r["model"], r["taskType"], r["outputDimensionality"]) for r in sent} == {
+        ("models/gemini-embedding-001", "RETRIEVAL_QUERY", 4)
+    }
+    assert vectors == [[0.6, 0.8, 0.0, 0.0]] * 2 and tokens == 5
+    assert KEY not in str(request.url)
+
+
+async def test_gemini_passages_are_embedded_as_documents() -> None:
+    kinds: set[str] = set()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        kinds.update(r["taskType"] for r in json.loads(request.content)["requests"])
+        return _gemini_reply(4)(request)
+
+    async with client(handler) as http:
+        await GeminiEmbedder(http, KEY, "m").embed(["a"], 4, "document")
+    assert kinds == {"RETRIEVAL_DOCUMENT"}
+
+
+async def test_gemini_embeddings_are_sent_in_batches_and_tokens_summed() -> None:
+    sizes: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sizes.append(len(json.loads(request.content)["requests"]))
+        return _gemini_reply(4, tokens=7)(request)
+
+    async with client(handler) as http:
+        vectors, tokens = await GeminiEmbedder(http, KEY, "m").embed(
+            [f"t{i}" for i in range(120)], 4, "document"
+        )
+    assert sizes == [50, 50, 20] and len(vectors) == 120 and tokens == 21
+
+
+async def test_gemini_replies_that_do_not_fit_are_rejected() -> None:
+    bad_replies = [
+        {"embeddings": []},
+        {"embeddings": [{"values": [1.0, 2.0]}]},
+        {"embeddings": [{"values": ["x", 1.0, 2.0, 3.0]}]},
+        {"embeddings": [{}]},
+        {},
+    ]
+    for payload in bad_replies:
+        async with client(reply(200, payload)) as http:
+            with pytest.raises(LLMInvalidOutputError):
+                await GeminiEmbedder(http, KEY, "m").embed(["a"], 4, "document")
+
+
+async def test_gemini_errors_map_like_the_other_providers_and_carry_only_the_category() -> None:
+    body = {"error": {"code": 400, "status": "INVALID_ARGUMENT", "message": "secret text"}}
+    async with client(reply(400, body)) as http:
+        with pytest.raises(LLMRequestError) as caught:
+            await GeminiEmbedder(http, KEY, "m").embed(["a"], 4, "document")
+    assert "INVALID_ARGUMENT" in str(caught.value) and "secret text" not in str(caught.value)
+    async with client(reply(429)) as http:
+        with pytest.raises(LLMRateLimitError):
+            await GeminiEmbedder(http, KEY, "m").embed(["a"], 4, "document")
+    async with client(reply(503)) as http:
+        with pytest.raises(LLMServerError):
+            await GeminiEmbedder(http, KEY, "m").embed(["a"], 4, "document")

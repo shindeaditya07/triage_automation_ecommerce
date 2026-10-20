@@ -20,6 +20,7 @@ from services.api.llm.client import (
     ClassifyRequest,
     DraftModelOutput,
     DraftRequest,
+    EmbedKind,
     JudgeRequest,
     LLMClient,
     LLMResult,
@@ -179,12 +180,14 @@ class ModelGateway(LLMClient):
             self._judge, "judge", JUDGE, judge_message(request), JudgeOutput
         )
 
-    async def embed(self, texts: Sequence[str]) -> LLMResult[list[list[float]]]:
+    async def embed(
+        self, texts: Sequence[str], kind: EmbedKind = "document"
+    ) -> LLMResult[list[list[float]]]:
         started = self._monotonic()
         batch = list(texts)
 
         async def call() -> tuple[list[list[float]], int]:
-            return await self._embedder.embed(batch, self._dimensions)
+            return await self._embedder.embed(batch, self._dimensions, kind)
 
         (vectors, tokens), attempts = await self._guarded(self._embed_breaker, call)
         if len(vectors) != len(batch) or any(len(v) != self._dimensions for v in vectors):

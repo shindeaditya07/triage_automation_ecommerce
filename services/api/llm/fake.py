@@ -17,6 +17,7 @@ from services.api.llm.client import (
     CallRecord,
     ClassifyRequest,
     DraftRequest,
+    EmbedKind,
     JudgeRequest,
     LLMClient,
     LLMResult,
@@ -121,5 +122,7 @@ class FakeLLMClient(LLMClient):
             raise RecordedOutputMissing("no recorded judgement for this reply") from None
         return LLMResult(output, self._record("judge", "judge"))
 
-    async def embed(self, texts: Sequence[str]) -> LLMResult[list[list[float]]]:
+    async def embed(
+        self, texts: Sequence[str], kind: EmbedKind = "document"
+    ) -> LLMResult[list[list[float]]]:
         return LLMResult([embed_text(t) for t in texts], self._record("embed", None, len(texts)))
