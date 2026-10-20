@@ -104,3 +104,20 @@ def test_the_factory_refuses_incomplete_settings() -> None:
     settings = LLMSettings.model_construct(llm_provider="anthropic")
     with pytest.raises(LLMConfigError):
         build_llm_client(settings)
+
+
+async def test_the_factory_builds_an_all_gemini_gateway_that_shares_one_key() -> None:
+    settings = real_settings(
+        llm_provider="gemini",
+        llm_api_key=SecretStr(GEMINI_KEY),
+        judge_provider="gemini",
+        judge_api_key=SecretStr(GEMINI_KEY),
+        judge_same_family_ok=True,
+        embed_provider="gemini",
+    )
+    assert settings.embedding_key().get_secret_value() == GEMINI_KEY  # type: ignore[union-attr]
+    http = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(500)))
+    client = build_llm_client(settings, http)
+    assert isinstance(client, ModelGateway)
+    await client.aclose()
+    await http.aclose()

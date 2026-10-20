@@ -12,7 +12,7 @@ from services.api.llm.pricing import Price
 from services.api.llm.prompts import PromptRegistry
 from services.api.llm.providers.anthropic import AnthropicChat
 from services.api.llm.providers.base import ChatModel, Embedder
-from services.api.llm.providers.gemini import GeminiEmbedder
+from services.api.llm.providers.gemini import GeminiChat, GeminiEmbedder
 from services.api.llm.providers.openai import OpenAIChat, OpenAIEmbedder
 from services.api.llm.resilience import CircuitBreaker, RetryPolicy
 from services.api.settings import LLMSettings, Provider
@@ -23,6 +23,8 @@ def _chat(provider: Provider | None, http: httpx.AsyncClient, key: str, model: s
         return AnthropicChat(http, key, model)
     if provider == "openai":
         return OpenAIChat(http, key, model)
+    if provider == "gemini":
+        return GeminiChat(http, key, model)
     raise LLMConfigError(f"no adapter for provider {provider!r}")
 
 
