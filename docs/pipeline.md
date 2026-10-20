@@ -112,6 +112,32 @@ No-draft reasons win over outside-policy ones. The windows (`services/api/time_u
 moment the customer wrote (`received_at`), not when the job runs, so a retry hours later cannot
 change the answer; the functions take that moment as an argument and read no clock.
 
+## Step 5: drafting (`services/api/pipeline/draft.py`)
+
+Runs for every ticket the routing did not send to the owner without a draft: the normal route and
+the suggestion-only one.
+
+1. **Retrieve** the policy passages (`docs/retrieval.md`). A suggestion-only ticket also gets
+   ESC-8.3. A failure to embed escalates with the model's reason; an index missing a required
+   passage escalates as `retrieval_failed`.
+2. **Ask the drafter** for a reply. It sees the customer's subject and message in data blocks,
+   this customer's order (the sender's email address is removed), the passages, and the store's
+   sign-off. Nothing else.
+3. **An invalid answer is tried once more** with the field errors put back in front of the model.
+   A second invalid answer escalates as `draft_invalid_output`; any other model failure escalates
+   with its own reason.
+4. **Store the draft** (`drafts`, attempt 1) with what it was made from: the order snapshot, the
+   passage IDs, the prompt version and hash, the model, the policy version and the token counts.
+   These come from this step's own inputs, not from what the model reports. The ticket moves from
+   `classified` to `drafted`, with a `ticket.drafted` audit event. A suggestion-only draft is
+   marked `suggestion_only` and the ticket keeps `escalation_reason=outside_policy`.
+
+**A stored draft is not yet checked.** The grounding validator (every fact cited, no promises, the
+sign-off) is the next branch, and until it exists `grounding_result` stays empty and no draft may
+be shown to the owner as approved. Nothing in the app reads drafts yet.
+
+Without a `DraftingConfig` the handler stops after routing; the earlier steps' tests rely on that.
+
 ## Not wired yet
 
 `make_process_ticket_handler` (`services/api/pipeline/process.py`) exists but the app does not

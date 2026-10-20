@@ -11,9 +11,10 @@ from sqlalchemy import func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from services.api.context.lookup import ContextLookup, LookupResult
-from services.api.db.tables import audit_log, order_snapshots, tickets
+from services.api.db.tables import audit_log, drafts, order_snapshots, tickets
 from services.api.llm.client import CallRecord
 from services.api.models import CustomerHistory, Order
+from services.api.models.draft import DraftOutput
 from services.api.models.enums import Flag, Intent, Sentiment, TicketStatus, Urgency
 from services.api.models.ticket import Classification
 
@@ -223,6 +224,82 @@ class PipelineStore:
             order,
             CustomerHistory.model_validate(history) if history is not None else None,
         )
+
+    async def snapshot_id(self, ticket_id: UUID) -> UUID | None:
+        """The order snapshot the lookup took, or None when it found no order."""
+        async with self._engine.connect() as conn:
+            summary = (
+                await conn.execute(
+                    select(tickets.c.order_lookup).where(tickets.c.ticket_id == ticket_id)
+                )
+            ).scalar_one_or_none()
+        raw = summary["snapshot_id"] if summary else None
+        return UUID(raw) if raw else None
+
+    async def save_draft(
+        self,
+        ticket_id: UUID,
+        draft: DraftOutput,
+        *,
+        passage_ids: list[str],
+        calls: list[CallRecord],
+        suggestion_only: bool,
+        now: datetime,
+    ) -> bool:
+        """Store the first draft with what it was made from, and move the ticket from
+        `classified` to `drafted`. False when the ticket was not `classified` (already drafted or
+        escalated), in which case nothing changes."""
+        call = next((c for c in reversed(calls) if c.purpose == "draft"), None)
+        async with self._engine.begin() as conn:
+            moved = await conn.execute(
+                update(tickets)
+                .where(
+                    tickets.c.ticket_id == ticket_id,
+                    tickets.c.status == TicketStatus.CLASSIFIED.value,
+                    tickets.c.deleted_at.is_(None),
+                )
+                .values(status=TicketStatus.DRAFTED.value, updated_at=now)
+            )
+            if moved.rowcount != 1:
+                return False
+            draft_id = uuid4()
+            await conn.execute(
+                insert(drafts).values(
+                    draft_id=draft_id,
+                    ticket_id=ticket_id,
+                    attempt=1,
+                    suggestion_only=suggestion_only,
+                    reply_text=draft.reply_text,
+                    citations=[c.model_dump(mode="json") for c in draft.citations],
+                    proposed_action=draft.proposed_action.value,
+                    confidence=draft.confidence,
+                    prompt_version=draft.prompt_version,
+                    prompt_hash=draft.prompt_hash,
+                    model=draft.model,
+                    policy_version=draft.policy_version,
+                    order_snapshot_id=draft.order_snapshot_id,
+                    retrieved_passage_ids=passage_ids,
+                    input_tokens=call.input_tokens if call else None,
+                    output_tokens=call.output_tokens if call else None,
+                    latency_ms=call.latency_ms if call else None,
+                    created_at=now,
+                )
+            )
+            await conn.execute(
+                insert(audit_log).values(
+                    ticket_id=ticket_id,
+                    event_type="ticket.drafted",
+                    actor="system",
+                    payload={
+                        "draft_id": str(draft_id),
+                        "suggestion_only": suggestion_only,
+                        "passages": passage_ids,
+                        "calls": [c.audit_payload() for c in calls],
+                    },
+                    occurred_at=now,
+                )
+            )
+        return True
 
     async def count_thread_messages(self, ticket_id: UUID) -> int:
         """The ticket's own message and every earlier one on its thread (ESC-8.2)."""
