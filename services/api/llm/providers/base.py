@@ -6,6 +6,7 @@ from typing import Any, Protocol
 
 import httpx
 
+from services.api.llm.client import EmbedKind
 from services.api.llm.errors import (
     LLMConnectionError,
     LLMInvalidOutputError,
@@ -48,8 +49,11 @@ class ChatModel(Protocol):
 class Embedder(Protocol):
     model: str
 
-    async def embed(self, texts: list[str], dimensions: int) -> tuple[list[list[float]], int]:
-        """Vectors in the order of `texts`, and the input tokens used."""
+    async def embed(
+        self, texts: list[str], dimensions: int, kind: EmbedKind
+    ) -> tuple[list[list[float]], int]:
+        """Vectors in the order of `texts` (unit length), and the input tokens used. `kind` lets a
+        provider that embeds queries and documents differently do so."""
         ...
 
 
@@ -70,7 +74,8 @@ def _error_type(response: httpx.Response) -> str | None:
     except ValueError:
         return None
     error = body.get("error") if isinstance(body, dict) else None
-    kind = error.get("type") if isinstance(error, dict) else None
+    # OpenAI and Anthropic say `type`; Google says `status` (for example INVALID_ARGUMENT).
+    kind = (error.get("type") or error.get("status")) if isinstance(error, dict) else None
     return kind[:60] if isinstance(kind, str) and kind.replace("_", "").isalnum() else None
 
 

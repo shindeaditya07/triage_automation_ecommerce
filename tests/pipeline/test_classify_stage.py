@@ -61,7 +61,7 @@ class Scripted(LLMClient):
     async def judge(self, request: JudgeRequest) -> Any:
         raise NotImplementedError
 
-    async def embed(self, texts: Sequence[str]) -> Any:
+    async def embed(self, texts: Sequence[str], kind: str = "document") -> Any:
         raise NotImplementedError
 
 

@@ -25,6 +25,7 @@ from services.api.models.judge import JudgeOutput
 from services.api.models.ticket import Classification, Probability
 
 Purpose = Literal["classify", "draft", "judge", "embed"]
+EmbedKind = Literal["document", "query"]  # a stored passage, or a message searched against them
 
 
 class CallRecord(StrictModel):
@@ -117,7 +118,9 @@ class LLMClient(ABC):
     async def judge(self, request: JudgeRequest) -> LLMResult[JudgeOutput]: ...
 
     @abstractmethod
-    async def embed(self, texts: Sequence[str]) -> LLMResult[list[list[float]]]: ...
+    async def embed(
+        self, texts: Sequence[str], kind: EmbedKind = "document"
+    ) -> LLMResult[list[list[float]]]: ...
 
     async def aclose(self) -> None:  # noqa: B027 - optional hook, nothing to close by default
         """Release network resources. Safe to call more than once."""

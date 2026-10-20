@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from scripts import index_policies
 from services.api import health
-from services.api.llm.client import LLMResult
+from services.api.llm.client import EmbedKind, LLMResult
 from services.api.llm.fake import FakeLLMClient, embed_text
 from services.api.models.enums import Intent
 from services.api.policy_source import expectation, parse_passages, policies_path
@@ -26,9 +26,11 @@ class Counting(FakeLLMClient):
         super().__init__()
         self.embedded: list[str] = []
 
-    async def embed(self, texts: Sequence[str]) -> LLMResult[list[list[float]]]:
+    async def embed(
+        self, texts: Sequence[str], kind: EmbedKind = "document"
+    ) -> LLMResult[list[list[float]]]:
         self.embedded.extend(texts)
-        return await super().embed(texts)
+        return await super().embed(texts, kind)
 
 
 @pytest.fixture

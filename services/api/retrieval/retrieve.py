@@ -70,7 +70,7 @@ async def retrieve(
     if unknown:
         raise RetrievalError(f"not policy passages: {', '.join(unknown)}")
 
-    embedded = await llm.embed([query_text(subject, body)])
+    embedded = await llm.embed([query_text(subject, body)], kind="query")
     vector = embedded.value[0]
     hits = await index.nearest(vector, top_k + len(required), embedded.record.model)
     nearby = [hit for hit in hits if hit.policy_id not in required][:top_k]

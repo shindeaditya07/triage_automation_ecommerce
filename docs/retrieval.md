@@ -39,7 +39,9 @@ missing from the index, raises `RetrievalError`. A model failure on the embeddin
 `catalog.unknown_policy_ids` is the "cited IDs must exist" check the grounding step reuses.
 
 The message text is embedded as it stands after intake, which has already masked card, account and
-phone numbers. It goes to the embedding provider.
+phone numbers. It goes to the embedding provider (`EMBED_PROVIDER`: `openai` or `gemini`, see
+ADR 0003). Passages are embedded as `document` and the message as `query`, which Gemini uses to
+match them better. Changing provider or model needs `make index-policies` again.
 
 ## What the smoke eval says, and does not
 

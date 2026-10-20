@@ -4,7 +4,7 @@ from collections.abc import Sequence
 
 import pytest
 
-from services.api.llm.client import LLMResult
+from services.api.llm.client import EmbedKind, LLMResult
 from services.api.llm.errors import LLMRequestError
 from services.api.llm.fake import FakeLLMClient
 from services.api.models.enums import Intent
@@ -119,7 +119,9 @@ async def test_a_model_failure_is_raised_for_the_caller_to_escalate(
     index: MemoryPolicyIndex,
 ) -> None:
     class Down(FakeLLMClient):
-        async def embed(self, texts: Sequence[str]) -> LLMResult[list[list[float]]]:
+        async def embed(
+            self, texts: Sequence[str], kind: EmbedKind = "document"
+        ) -> LLMResult[list[list[float]]]:
             raise LLMRequestError(401)
 
     with pytest.raises(LLMRequestError):

@@ -10,6 +10,7 @@ from services.api.settings import DatabaseSettings, Settings
 ROOT = Path(__file__).resolve().parents[2]
 DB_URL = "postgresql+asyncpg://u:p@localhost:5432/d"
 GOOD = "x" * 40
+GEMINI_KEY = "g1"  # pragma: allowlist secret
 # A drafter and a judge from different providers: the smallest valid non-fake LLM setup.
 REAL_MODELS = {
     "LLM_PROVIDER": "anthropic",
@@ -176,6 +177,33 @@ def test_embeddings_need_an_openai_key_somewhere(monkeypatch: pytest.MonkeyPatch
     same = REAL_MODELS | {"JUDGE_PROVIDER": "anthropic", "JUDGE_SAME_FAMILY_OK": "true"}
     _env(monkeypatch, **same)
     with pytest.raises(ValidationError, match="OpenAI key"):
+        Settings()  # type: ignore[call-arg]
+
+
+def test_gemini_embeddings_need_their_own_key_and_default_to_their_own_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # An OpenAI judge key is not a Gemini key.
+    _env(monkeypatch, **(REAL_MODELS | {"EMBED_PROVIDER": "gemini"}))
+    with pytest.raises(ValidationError, match="embeddings \\(gemini\\) need a key"):
+        Settings()  # type: ignore[call-arg]
+    _env(monkeypatch, **(REAL_MODELS | {"EMBED_PROVIDER": " Gemini ", "EMBED_API_KEY": GEMINI_KEY}))
+    settings = Settings()  # type: ignore[call-arg]
+    assert (settings.embed_provider, settings.embed_model) == ("gemini", "gemini-embedding-001")
+    assert settings.embedding_key().get_secret_value() == GEMINI_KEY  # type: ignore[union-attr]
+
+
+def test_the_embedding_model_defaults_by_provider_and_can_be_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _env(monkeypatch)
+    assert Settings().embed_model == "text-embedding-3-small"  # type: ignore[call-arg]
+    _env(monkeypatch, EMBED_MODEL="  ")
+    assert Settings().embed_model == "text-embedding-3-small"  # type: ignore[call-arg]
+    _env(monkeypatch, EMBED_PROVIDER="gemini", EMBED_MODEL="my-model")
+    assert Settings().embed_model == "my-model"  # type: ignore[call-arg]
+    _env(monkeypatch, EMBED_PROVIDER="mystery")
+    with pytest.raises(ValidationError, match="embed_provider"):
         Settings()  # type: ignore[call-arg]
 
 

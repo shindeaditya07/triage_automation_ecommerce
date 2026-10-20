@@ -53,8 +53,12 @@ class ScriptedEmbedder:
     def __init__(self, width: int = 1536, count: int | None = None) -> None:
         self._width = width
         self._count = count
+        self.kinds: list[str] = []
 
-    async def embed(self, texts: list[str], dimensions: int) -> tuple[list[list[float]], int]:
+    async def embed(
+        self, texts: list[str], dimensions: int, kind: str
+    ) -> tuple[list[list[float]], int]:
+        self.kinds.append(kind)
         n = len(texts) if self._count is None else self._count
         return [[0.5] * self._width for _ in range(n)], 40
 
@@ -235,6 +239,14 @@ async def test_embed_records_tokens_and_cost() -> None:
     assert len(result.value) == 2 and len(result.value[0]) == 1536
     assert (result.record.purpose, result.record.input_tokens) == ("embed", 40)
     assert result.record.cost_inr == Decimal("0.0040")
+
+
+async def test_embed_tells_the_provider_whether_it_is_a_passage_or_a_query() -> None:
+    embedder = ScriptedEmbedder()
+    gateway, _ = make(ScriptedModel("d", []), embedder=embedder)
+    await gateway.embed(["a"])
+    await gateway.embed(["b"], kind="query")
+    assert embedder.kinds == ["document", "query"]
 
 
 @pytest.mark.parametrize("embedder", [ScriptedEmbedder(width=8), ScriptedEmbedder(count=1)])

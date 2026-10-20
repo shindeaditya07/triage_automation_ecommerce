@@ -49,3 +49,26 @@ choice:
 - Customer text leaves the system for two providers. Customer addresses and order details are sent
   only where the step needs them; the classifier sees text only.
 - Changing provider later means one new adapter in `services/api/llm/providers/`.
+
+## Amendment 2026-10-20: embeddings can come from Gemini
+
+Status stays proposed. The owner asked to use a Gemini key for embeddings instead of OpenAI.
+
+- `EMBED_PROVIDER` is `openai` (default) or `gemini`. Gemini needs `EMBED_API_KEY`; an OpenAI
+  drafter or judge key is not a Gemini key. `EMBED_MODEL` defaults to the provider's model:
+  `text-embedding-3-small` or `gemini-embedding-001`.
+- Gemini returns 1536 dimensions on request (its native size is 3072), so the column and the
+  index stay as they are. The adapter scales each vector to unit length because Google does not
+  promise that for reduced sizes.
+- `LLMClient.embed` takes `kind` (`document` for a stored passage, `query` for a message searched
+  against them). Gemini maps these to `RETRIEVAL_DOCUMENT` and `RETRIEVAL_QUERY`; OpenAI ignores
+  it.
+- Switching provider or model means running `make index-policies` again: the stored vectors carry
+  the model's name, and search only compares vectors from the same model.
+- Not changed: the judge is still OpenAI (a drafter and a judge from different providers). Using
+  Gemini there too would need a Gemini chat adapter, which does not exist yet.
+- Data use: Google's free-tier terms allow it to use submitted content to improve its products,
+  and the paid tier does not. The text sent for embedding is the customer's message after intake
+  has masked card, account and phone numbers, so use a paid-tier key for real customer messages.
+- The Gemini adapter is tested against mocked responses only. The first run of
+  `make index-policies` with a real key is the first proof it works.
