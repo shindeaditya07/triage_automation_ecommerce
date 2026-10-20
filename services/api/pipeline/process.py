@@ -1,5 +1,5 @@
 """The `process_ticket` job handler: classify, check for pre-lookup escalation, look up the order,
-check for post-lookup escalation. Later branches add the steps after."""
+check for post-lookup escalation, draft the reply. Later branches add the steps after."""
 
 import logging
 
@@ -13,16 +13,22 @@ from services.api.llm.client import LLMClient
 from services.api.models.enums import TicketStatus
 from services.api.models.records import Job
 from services.api.pipeline.classify import classify_ticket
+from services.api.pipeline.draft import DraftingConfig, draft_ticket
 from services.api.pipeline.store import PipelineStore
 
 log = logging.getLogger("replydesk.pipeline")
 
 
 def make_process_ticket_handler(
-    store: PipelineStore, client: LLMClient, orders: OrderStoreClient, clock: Clock
+    store: PipelineStore,
+    client: LLMClient,
+    orders: OrderStoreClient,
+    clock: Clock,
+    drafting: DraftingConfig | None = None,
 ) -> Handler:
     """Each step reads the ticket's state and does only the step that state is waiting for, so a
-    job that stopped half way picks up where it left off and one that ran twice does nothing."""
+    job that stopped half way picks up where it left off and one that ran twice does nothing.
+    Without `drafting` the handler stops after routing (tests of the earlier steps)."""
 
     async def handle(job: Job) -> None:
         if job.ticket_id is None:
@@ -82,33 +88,70 @@ def make_process_ticket_handler(
                 await store.save_order_lookup(ticket.ticket_id, lookup, clock())
                 log.info("order lookup: %s", lookup.result.value)
 
-            if ticket.escalation_reason is not None:
-                return  # already routed suggestion-only; the draft step takes it from here
+            suggestion_only = ticket.escalation_reason is not None  # routed on an earlier run
+            if not suggestion_only:
+                recorded = await store.load_lookup(ticket.ticket_id)
+                if recorded is None:
+                    raise PermanentJobError("the order lookup is missing")
+                routing = post_lookup.decide(
+                    ticket.classification,
+                    recorded,
+                    thread_messages=await store.count_thread_messages(ticket.ticket_id),
+                    received_at=ticket.received_at,
+                )
+                if routing.route is post_lookup.Route.NO_DRAFT:
+                    await store.escalate(
+                        ticket.ticket_id,
+                        "post_lookup",
+                        routing.reason,
+                        [],
+                        clock(),
+                        from_status=TicketStatus.CLASSIFIED,
+                        flags=routing.flags,
+                        detail={"reasons": routing.reasons},
+                    )
+                    log.info("ticket escalated after lookup: %s", routing.reason)
+                    return
+                if routing.route is post_lookup.Route.SUGGESTION_ONLY:
+                    await store.mark_suggestion_only(
+                        ticket.ticket_id, routing.reason, routing.triggers, routing.flags, clock()
+                    )
+                    log.info("ticket routed suggestion-only: %s", ",".join(routing.triggers))
+                    suggestion_only = True
+
+            if drafting is None:
+                return
             recorded = await store.load_lookup(ticket.ticket_id)
             if recorded is None:
                 raise PermanentJobError("the order lookup is missing")
-            routing = post_lookup.decide(
-                ticket.classification,
+            written = await draft_ticket(
+                client,
+                drafting,
+                ticket,
                 recorded,
-                thread_messages=await store.count_thread_messages(ticket.ticket_id),
-                received_at=ticket.received_at,
+                snapshot_id=await store.snapshot_id(ticket.ticket_id),
+                suggestion_only=suggestion_only,
             )
-            if routing.route is post_lookup.Route.NO_DRAFT:
+            if written.draft is None:
+                reason = written.escalation_reason or "draft_failed"
                 await store.escalate(
                     ticket.ticket_id,
-                    "post_lookup",
-                    routing.reason,
-                    [],
+                    "draft",
+                    reason,
+                    written.calls,
                     clock(),
                     from_status=TicketStatus.CLASSIFIED,
-                    flags=routing.flags,
-                    detail={"reasons": routing.reasons},
                 )
-                log.info("ticket escalated after lookup: %s", routing.reason)
-            elif routing.route is post_lookup.Route.SUGGESTION_ONLY:
-                await store.mark_suggestion_only(
-                    ticket.ticket_id, routing.reason, routing.triggers, routing.flags, clock()
-                )
-                log.info("ticket routed suggestion-only: %s", ",".join(routing.triggers))
+                log.info("ticket escalated at drafting: %s", reason)
+                return
+            await store.save_draft(
+                ticket.ticket_id,
+                written.draft,
+                passage_ids=written.passage_ids,
+                calls=written.calls,
+                suggestion_only=suggestion_only,
+                now=clock(),
+            )
+            log.info("draft stored (suggestion_only=%s)", suggestion_only)
 
     return handle
