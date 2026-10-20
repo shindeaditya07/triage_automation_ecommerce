@@ -13,9 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from services.api.context.lookup import ContextLookup, LookupResult
 from services.api.db.tables import audit_log, drafts, order_snapshots, tickets
+from services.api.grounding.edit import EditContext, EditOverride
 from services.api.llm.client import CallRecord
 from services.api.models import CustomerHistory, Order
-from services.api.models.draft import DraftOutput
+from services.api.models.draft import Citation, DraftOutput
 from services.api.models.enums import DraftKind, Flag, Intent, Sentiment, TicketStatus, Urgency
 from services.api.models.ticket import Classification
 
@@ -328,6 +329,59 @@ class PipelineStore:
                     )
                 )
         return True
+
+    async def edit_context(self, ticket_id: UUID) -> EditContext | None:
+        """What an owner's edit of this ticket's latest draft is checked against. None when the
+        ticket is gone or has no draft yet."""
+        query = (
+            select(
+                drafts.c.draft_id,
+                drafts.c.citations,
+                tickets.c.customer_email,
+                tickets.c.subject,
+                tickets.c.body,
+                order_snapshots.c.data,
+            )
+            .select_from(
+                drafts.join(tickets, tickets.c.ticket_id == drafts.c.ticket_id).outerjoin(
+                    order_snapshots, order_snapshots.c.snapshot_id == drafts.c.order_snapshot_id
+                )
+            )
+            .where(drafts.c.ticket_id == ticket_id, tickets.c.deleted_at.is_(None))
+            .order_by(drafts.c.attempt.desc())
+            .limit(1)
+        )
+        async with self._engine.connect() as conn:
+            row = (await conn.execute(query)).first()
+        if row is None:
+            return None
+        return EditContext(
+            draft_id=row.draft_id,
+            customer_email=row.customer_email,
+            subject=row.subject,
+            body=row.body,
+            order=row.data,
+            citations=[Citation.model_validate(c) for c in row.citations],
+        )
+
+    async def record_edit_override(
+        self, ticket_id: UUID, draft_id: UUID, override: EditOverride
+    ) -> None:
+        """Append the owner's reason for saving an edit despite grounding warnings."""
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                insert(audit_log).values(
+                    ticket_id=ticket_id,
+                    event_type="draft.edit_override",
+                    actor=override.actor,
+                    payload={
+                        "draft_id": str(draft_id),
+                        "reason": override.reason,
+                        "overridden_rules": override.overridden_rules,
+                    },
+                    occurred_at=override.timestamp,
+                )
+            )
 
     async def count_thread_messages(self, ticket_id: UUID) -> int:
         """The ticket's own message and every earlier one on its thread (ESC-8.2)."""

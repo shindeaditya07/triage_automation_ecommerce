@@ -134,6 +134,25 @@ class StoreSettings(BaseSettings):
     mock_store_timeout_seconds: float = Field(default=5.0, gt=0)
 
 
+class StoreProfileSettings(BaseSettings):
+    """Who the store is: the name and the exact sign-off every reply must end with."""
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    store_name: str = "Kaveri Home Goods"
+    store_sign_off: str = "Kaveri Home Goods Support"
+    store_timezone: str = "Asia/Kolkata"
+
+    @field_validator("store_timezone")
+    @classmethod
+    def _known_timezone(cls, value: str) -> str:
+        try:
+            ZoneInfo(value)
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError(f"unknown timezone {value!r}") from exc
+        return value
+
+
 class IntakeSettings(DeploymentSettings):
     """Limits and the shared secret for the two ticket-intake endpoints."""
 
@@ -288,17 +307,18 @@ class LLMSettings(BaseSettings):
 
 
 class Settings(
-    DatabaseSettings, AuthSettings, JobSettings, IntakeSettings, LLMSettings, StoreSettings
+    DatabaseSettings,
+    AuthSettings,
+    JobSettings,
+    IntakeSettings,
+    LLMSettings,
+    StoreSettings,
+    StoreProfileSettings,
 ):
     # API
     hmac_secret: SecretStr
     base_url: str
     cors_allowed_origins: Annotated[list[str], NoDecode] = Field(default_factory=list)
-
-    # Store profile
-    store_name: str = "Kaveri Home Goods"
-    store_sign_off: str = "Kaveri Home Goods Support"
-    store_timezone: str = "Asia/Kolkata"
 
     # Mock store and time
     frozen_now: datetime | None = None
@@ -323,15 +343,6 @@ class Settings(
     def _split_origins(cls, value: object) -> object:
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
-        return value
-
-    @field_validator("store_timezone")
-    @classmethod
-    def _known_timezone(cls, value: str) -> str:
-        try:
-            ZoneInfo(value)
-        except ZoneInfoNotFoundError as exc:
-            raise ValueError(f"unknown timezone {value!r}") from exc
         return value
 
     @field_validator("frozen_now")
