@@ -7,12 +7,13 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from services.api.context.lookup import ContextLookup, LookupResult
 from services.api.db.tables import audit_log, order_snapshots, tickets
 from services.api.llm.client import CallRecord
+from services.api.models import CustomerHistory, Order
 from services.api.models.enums import Flag, Intent, Sentiment, TicketStatus, Urgency
 from services.api.models.ticket import Classification
 
@@ -23,10 +24,12 @@ class TicketText:
     status: TicketStatus
     subject: str | None
     body: str
+    received_at: datetime
     classification: Classification | None = None  # set once the ticket is classified
     customer_email: str = ""
     order_id_hint: str | None = None
     lookup_done: bool = False
+    escalation_reason: str | None = None  # set on a classified ticket routed suggestion-only
 
 
 class PipelineStore:
@@ -48,6 +51,8 @@ class PipelineStore:
                         tickets.c.flags,
                         tickets.c.customer_email,
                         tickets.c.order_id_hint,
+                        tickets.c.received_at,
+                        tickets.c.escalation_reason,
                         tickets.c.order_lookup.is_not(None).label("lookup_done"),
                     ).where(tickets.c.ticket_id == ticket_id, tickets.c.deleted_at.is_(None))
                 )
@@ -68,10 +73,12 @@ class PipelineStore:
             TicketStatus(row.status),
             row.subject,
             row.body,
+            row.received_at,
             classification,
             row.customer_email,
             row.order_id_hint,
             row.lookup_done,
+            row.escalation_reason,
         )
 
     async def save_classification(
@@ -187,6 +194,82 @@ class PipelineStore:
             )
         return True
 
+    async def load_lookup(self, ticket_id: UUID) -> ContextLookup | None:
+        """The recorded lookup, rebuilt from the ticket summary and its order snapshot. None when
+        the lookup has not run."""
+        async with self._engine.connect() as conn:
+            summary = (
+                await conn.execute(
+                    select(tickets.c.order_lookup).where(tickets.c.ticket_id == ticket_id)
+                )
+            ).scalar_one_or_none()
+            if summary is None:
+                return None
+            order = None
+            if summary["snapshot_id"] is not None:
+                data = (
+                    await conn.execute(
+                        select(order_snapshots.c.data).where(
+                            order_snapshots.c.snapshot_id == UUID(summary["snapshot_id"])
+                        )
+                    )
+                ).scalar_one()
+                order = Order.model_validate(data)
+        history = summary["history"]
+        return ContextLookup(
+            LookupResult(summary["result"]),
+            summary["order_id"],
+            summary["candidates"],
+            order,
+            CustomerHistory.model_validate(history) if history is not None else None,
+        )
+
+    async def count_thread_messages(self, ticket_id: UUID) -> int:
+        """The ticket's own message and every earlier one on its thread (ESC-8.2)."""
+        this = tickets.alias("this")
+        async with self._engine.connect() as conn:
+            return int(
+                (
+                    await conn.execute(
+                        select(func.count())
+                        .select_from(tickets)
+                        .join(
+                            this,
+                            (tickets.c.thread_id == this.c.thread_id)
+                            & (tickets.c.received_at <= this.c.received_at),
+                        )
+                        .where(this.c.ticket_id == ticket_id, tickets.c.deleted_at.is_(None))
+                    )
+                ).scalar_one()
+            )
+
+    async def mark_suggestion_only(
+        self,
+        ticket_id: UUID,
+        reason: str,
+        triggers: list[str],
+        flags: list[Flag],
+        now: datetime,
+    ) -> bool:
+        """Route a classified ticket to the owner with a suggestion-only draft (ESC-8.3). The
+        ticket stays `classified`; `escalation_reason` is what marks the route. False when the
+        ticket was already routed or is no longer classified."""
+        values: dict[str, Any] = {
+            "escalation_reason": reason,
+            "flags": [flag.value for flag in flags],
+            "updated_at": now,
+        }
+        payload: dict[str, Any] = {"stage": "post_lookup", "reason": reason, "triggers": triggers}
+        return await self._advance(
+            ticket_id,
+            values,
+            "ticket.suggestion_only",
+            payload,
+            now,
+            TicketStatus.CLASSIFIED,
+            unrouted=True,
+        )
+
     async def _advance(
         self,
         ticket_id: UUID,
@@ -195,17 +278,18 @@ class PipelineStore:
         payload: dict[str, Any],
         now: datetime,
         from_status: TicketStatus = TicketStatus.NEW,
+        *,
+        unrouted: bool = False,
     ) -> bool:
+        guards = [
+            tickets.c.ticket_id == ticket_id,
+            tickets.c.status == from_status.value,
+            tickets.c.deleted_at.is_(None),
+        ]
+        if unrouted:
+            guards.append(tickets.c.escalation_reason.is_(None))
         async with self._engine.begin() as conn:
-            result = await conn.execute(
-                update(tickets)
-                .where(
-                    tickets.c.ticket_id == ticket_id,
-                    tickets.c.status == from_status.value,
-                    tickets.c.deleted_at.is_(None),
-                )
-                .values(**values)
-            )
+            result = await conn.execute(update(tickets).where(*guards).values(**values))
             if result.rowcount != 1:
                 return False
             await conn.execute(

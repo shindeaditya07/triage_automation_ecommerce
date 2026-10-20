@@ -9,6 +9,7 @@ the clock or the network on its own.
 import argparse
 import asyncio
 import hashlib
+import importlib
 import sys
 import uuid
 from collections.abc import Callable, Sequence
@@ -16,6 +17,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Protocol
 
+import httpx
 from pydantic import Field
 
 from evals import corpus
@@ -33,6 +35,9 @@ from evals.metrics import (
 )
 from evals.schema import BadDraft, LabeledTicket, Outcome, RecordedPrediction
 from scripts.policy_lib import POLICIES_PATH, policies_sha256, policies_version
+from services.api.context.client import OrderStoreClient
+from services.api.context.lookup import ContextLookup, look_up_context
+from services.api.escalation import post_lookup
 from services.api.escalation.pre_lookup import decide
 from services.api.llm.fake import FakeLLMClient
 from services.api.models.common import StrictModel
@@ -42,10 +47,31 @@ ROOT = Path(__file__).resolve().parent.parent
 RESULTS_DIR = Path(__file__).parent / "results"
 PROMPTS_DIR = ROOT / "services" / "api" / "prompts"
 ESCALATION_RECALL_FLOOR = 0.95
-# Reasons that only the steps after the order lookup can produce (still recorded, not computed).
+# Reasons produced after the order lookup. The rules compute all of them except the part of
+# `outside_policy` no order field shows (a product question the FAQ cannot answer).
 POST_LOOKUP_REASONS = frozenset(
     {"order_not_found", "order_mismatch", "repeat_complaint", "high_value", "outside_policy"}
 )
+_OUTCOMES = {
+    post_lookup.Route.NO_DRAFT: Outcome.NO_DRAFT_ESCALATION,
+    post_lookup.Route.SUGGESTION_ONLY: Outcome.SUGGESTION_ONLY,
+    post_lookup.Route.DRAFT: Outcome.DRAFT,
+}
+
+
+async def _look_up(ticket: LabeledTicket) -> ContextLookup:
+    """The real lookup against the seeded mock store, served in-process at the frozen time."""
+    mock_main = importlib.import_module("services.mock-store.main")
+    transport = httpx.ASGITransport(app=mock_main.create_app(corpus.EVAL_NOW))
+    async with httpx.AsyncClient(transport=transport, timeout=5) as http:
+        return await look_up_context(
+            OrderStoreClient(http, "http://mock-store.eval"),
+            email=ticket.customer_email,
+            subject=ticket.subject,
+            body=corpus.resolve(ticket.body, ticket.scenario_case),
+            order_id_hint=None,
+        )
+
 
 # Set by the grounding branch. Until a validator exists the report says so instead of passing.
 GROUNDING_VALIDATOR: GroundingValidator | None = None
@@ -59,8 +85,10 @@ class Pipeline(Protocol):
 
 
 class RecordedPipeline:
-    """The real classification step (recorded client) and the real pre-lookup escalation rules.
-    The steps after the order lookup do not exist yet, so their routing is the recorded one."""
+    """The real classification step (recorded client), the real pre-lookup rules, the real order
+    lookup against the mock store, and the real post-lookup rules. The steps after (policy
+    retrieval, drafting) do not exist yet, so a ticket the rules would draft keeps its recorded
+    routing only when that is a reason the rules cannot see."""
 
     name = "recorded-fake"
     gated = True
@@ -86,21 +114,18 @@ class RecordedPipeline:
                 outcome=Outcome.NO_DRAFT_ESCALATION,
                 escalation_reasons=decision.reasons,
             )
-        routing = self._recorded[ticket.id]
-        recorded_reasons = set(routing.escalation_reasons)
-        if recorded_reasons and not recorded_reasons <= POST_LOOKUP_REASONS:
-            # A recorded pre-lookup escalation the real rules did not reproduce is not carried
-            # over: this run shows what the rules do, so the miss stays visible.
-            return Prediction(
-                intent=classification.intent,
-                urgency=classification.urgency.value,
-                outcome=Outcome.DRAFT,
-            )
+        lookup = asyncio.run(_look_up(ticket))
+        routing = post_lookup.decide(
+            classification,
+            lookup,
+            thread_messages=ticket.thread_message_count,
+            received_at=corpus.EVAL_NOW,
+        )
         return Prediction(
             intent=classification.intent,
             urgency=classification.urgency.value,
-            outcome=routing.outcome,
-            escalation_reasons=list(routing.escalation_reasons),
+            outcome=_OUTCOMES[routing.route],
+            escalation_reasons=routing.reasons,
         )
 
 

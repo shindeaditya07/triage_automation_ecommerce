@@ -1,11 +1,12 @@
-"""The `process_ticket` job handler: classify, check for pre-lookup escalation, look up the order.
-Later branches add the steps after."""
+"""The `process_ticket` job handler: classify, check for pre-lookup escalation, look up the order,
+check for post-lookup escalation. Later branches add the steps after."""
 
 import logging
 
 from services.api.clock import Clock
 from services.api.context.client import OrderStoreClient, StoreContractError
 from services.api.context.lookup import look_up_context
+from services.api.escalation import post_lookup
 from services.api.escalation.pre_lookup import decide
 from services.api.jobs.worker import Handler, PermanentJobError
 from services.api.llm.client import LLMClient
@@ -80,5 +81,34 @@ def make_process_ticket_handler(
                 # StoreUnavailable is not caught: the job is retried later.
                 await store.save_order_lookup(ticket.ticket_id, lookup, clock())
                 log.info("order lookup: %s", lookup.result.value)
+
+            if ticket.escalation_reason is not None:
+                return  # already routed suggestion-only; the draft step takes it from here
+            recorded = await store.load_lookup(ticket.ticket_id)
+            if recorded is None:
+                raise PermanentJobError("the order lookup is missing")
+            routing = post_lookup.decide(
+                ticket.classification,
+                recorded,
+                thread_messages=await store.count_thread_messages(ticket.ticket_id),
+                received_at=ticket.received_at,
+            )
+            if routing.route is post_lookup.Route.NO_DRAFT:
+                await store.escalate(
+                    ticket.ticket_id,
+                    "post_lookup",
+                    routing.reason,
+                    [],
+                    clock(),
+                    from_status=TicketStatus.CLASSIFIED,
+                    flags=routing.flags,
+                    detail={"reasons": routing.reasons},
+                )
+                log.info("ticket escalated after lookup: %s", routing.reason)
+            elif routing.route is post_lookup.Route.SUGGESTION_ONLY:
+                await store.mark_suggestion_only(
+                    ticket.ticket_id, routing.reason, routing.triggers, routing.flags, clock()
+                )
+                log.info("ticket routed suggestion-only: %s", ",".join(routing.triggers))
 
     return handle

@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from services.api.context.client import StoreUnavailable
 from services.api.jobs.worker import PermanentJobError
-from tests.context.support import seeded, store_client
+from tests.context.support import NOW, seeded, store_client
 from tests.db.jobs_support import make_ticket
 from tests.db.test_pipeline_store import events, handler, job_for, row
 from tests.pipeline.test_classify_stage import Scripted, good
@@ -27,10 +27,10 @@ async def prepare(
     async with engine.begin() as conn:
         await conn.execute(
             text(
-                "UPDATE tickets SET customer_email = :email, body = :body, order_id_hint = :hint"
-                " WHERE ticket_id = :id"
+                "UPDATE tickets SET customer_email = :email, body = :body, order_id_hint = :hint,"
+                " received_at = :at WHERE ticket_id = :id"
             ),
-            {"email": email, "body": body, "hint": hint, "id": ticket_id},
+            {"email": email, "body": body, "hint": hint, "at": NOW, "id": ticket_id},
         )
     return ticket_id
 
