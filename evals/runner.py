@@ -20,7 +20,7 @@ from typing import Protocol
 import httpx
 from pydantic import Field
 
-from evals import corpus
+from evals import corpus, retrieval
 from evals.baseline import BaselinePipeline
 from evals.metrics import (
     ClassificationMetrics,
@@ -142,6 +142,12 @@ class GroundingReport(StrictModel):
     metrics: GroundingMetrics | None = None
 
 
+class RetrievalReport(StrictModel):
+    status: str
+    detail: str
+    metrics: retrieval.RetrievalMetrics | None = None
+
+
 class RunMeta(StrictModel):
     run_id: str
     date: str
@@ -161,6 +167,7 @@ class Report(StrictModel):
     problems: list[str] = Field(default_factory=list)
     systems: list[SystemReport] = Field(default_factory=list)
     grounding: GroundingReport
+    retrieval: RetrievalReport
     passed: bool
     failures: list[str] = Field(default_factory=list)
 
@@ -219,6 +226,18 @@ def _grounding(drafts: Sequence[BadDraft]) -> GroundingReport:
     )
 
 
+def _retrieval(tickets: Sequence[LabeledTicket]) -> RetrievalReport:
+    metrics = retrieval.measure_sync(tickets, FakeLLMClient())
+    return RetrievalReport(
+        status="evaluated",
+        detail=(
+            "Embeddings in this run are the fake client's hashed bag-of-words vectors: the "
+            "intent-required passages are a real measurement, the vector search is a harness check."
+        ),
+        metrics=metrics,
+    )
+
+
 def run(
     *,
     mode: str,
@@ -263,6 +282,11 @@ def run(
                     f"{system.system}: escalation recall {value} is below {ESCALATION_RECALL_FLOOR}"
                 )
     grounding = _grounding(drafts)
+    retrieval_report = (
+        _retrieval(tickets)
+        if not problems
+        else RetrievalReport(status="not_evaluated", detail="the datasets have problems")
+    )
     if grounding.metrics is not None and grounding.metrics.missed:
         failures.append(f"grounding: validator missed {', '.join(grounding.metrics.missed)}")
     return Report(
@@ -270,6 +294,7 @@ def run(
         problems=problems,
         systems=systems,
         grounding=grounding,
+        retrieval=retrieval_report,
         passed=not failures,
         failures=failures,
     )
@@ -358,6 +383,18 @@ def render_markdown(report: Report) -> str:
                 f"{_fmt(item.recall)} |"
             )
         lines.append("")
+    lines += [f"## Retrieval: {report.retrieval.status}", "", report.retrieval.detail, ""]
+    if report.retrieval.metrics is not None:
+        r = report.retrieval.metrics
+        lines += [
+            f"- tickets measured: {r.tickets} (drafted or suggestion-only, with cited passages)",
+            f"- cited passages retrieved: {_fmt(r.passages)}",
+            f"- of those, by intent alone: {_fmt(r.passages_by_intent_only)}",
+            f"- tickets with every cited passage: {_fmt(r.tickets_complete)}",
+            f"- mean passages per ticket: {r.mean_retrieved:.1f}",
+            f"- tickets missing a cited passage: {', '.join(r.missed) or 'none'}",
+            "",
+        ]
     lines += [f"## Grounding: {report.grounding.status}", "", report.grounding.detail, ""]
     if report.grounding.metrics is not None:
         g = report.grounding.metrics
