@@ -82,6 +82,24 @@ regular expression stops startup. The API image copies it next to `policy_consta
   each with its expected rule, and none of the 24 good drafts (`good_drafts.jsonl`) may be blocked.
   Either failure fails the run.
 
+## Owner edits
+
+When the owner edits a draft, the same deterministic rules re-run on the new text as a **warning**
+(spec 13.4). `POST /api/v1/tickets/{ticket_id}/draft/validate` (owner sign-in and CSRF header
+required) takes `{"reply_text": "..."}` and always answers 200 with `{"passed": bool, "failures":
+[{rule_id, span, detail, citation_missing}]}`. It never blocks saving. It is checked against the
+draft's own order snapshot and citations, the ticket's message and the loaded policy. The judge is
+not run on edits. An unknown ticket or one with no draft is 404; with no database the route is 503.
+
+Saving despite a warning needs an `EditOverride`: a reason, the rules being overridden, who and
+when (`grounding/edit.py`). `check_override` rejects an override with no reason, one for rules that
+did not fire, and one that leaves a firing rule uncovered. `PipelineStore.record_edit_override`
+appends it to the audit log as `draft.edit_override` (reason and rules, not the text).
+
+Not built yet, because there is no approval or save route: calling `check_override` and
+`record_edit_override` when the owner saves, and the edit diff stored on approval. Both belong to
+the approval branch.
+
 ## What these rules do not catch
 
 Read this before trusting a green result.

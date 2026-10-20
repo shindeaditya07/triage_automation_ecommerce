@@ -1,5 +1,5 @@
 """ReplyDesk API. Endpoints arrive branch by branch; so far: health, owner authentication, the
-background job runner and ticket intake."""
+background job runner, ticket intake and the grounding warning for an owner's edit."""
 
 import logging
 from collections.abc import AsyncIterator, Mapping
@@ -16,6 +16,8 @@ from services.api.auth.routes import router as auth_router
 from services.api.auth.service import AuthService
 from services.api.auth.store import AuthStore, PostgresAuthStore
 from services.api.clock import Clock, utc_now
+from services.api.grounding.routes import EditContextSource, EditValidationRuntime
+from services.api.grounding.routes import router as grounding_router
 from services.api.health import Database, check_readiness, open_database
 from services.api.intake.routes import IntakeRuntime
 from services.api.intake.routes import router as intake_router
@@ -25,7 +27,9 @@ from services.api.jobs.runner import JobRunner
 from services.api.jobs.store import JobStore
 from services.api.jobs.worker import Handler
 from services.api.models.enums import JobType
-from services.api.settings import AuthSettings, IntakeSettings, JobSettings
+from services.api.pipeline.store import PipelineStore
+from services.api.policy_source import loaded_passages
+from services.api.settings import AuthSettings, IntakeSettings, JobSettings, StoreProfileSettings
 
 log = logging.getLogger("replydesk.api")
 
@@ -82,6 +86,17 @@ def _build_intake(
     return IntakeRuntime.create(service, settings, clock)
 
 
+def _build_edit_validation(
+    database: Database, source: EditContextSource | None
+) -> EditValidationRuntime | None:
+    """Edit validation reads the ticket's draft, so it needs a database (or a test's source)."""
+    if source is None:
+        if database.engine is None:
+            return None
+        source = PipelineStore(database.engine)
+    return EditValidationRuntime(source, StoreProfileSettings().store_sign_off, loaded_passages())
+
+
 def create_app(
     engine: AsyncEngine | None = None,
     *,
@@ -92,6 +107,7 @@ def create_app(
     job_handlers: Mapping[JobType, Handler] | None = None,
     intake_settings: IntakeSettings | None = None,
     intake_service: IntakeService | None = None,
+    edit_context_source: EditContextSource | None = None,
 ) -> FastAPI:
     """Build the app. Tests pass an engine, auth settings, a store and a clock; otherwise the
     database and auth settings come from the environment.
@@ -110,6 +126,7 @@ def create_app(
         app.state.database = database
         app.state.auth = _build_auth(auth_settings, database, auth_store, clock)
         app.state.intake = _build_intake(intake_settings, database, intake_service, clock)
+        app.state.edit_validation = _build_edit_validation(database, edit_context_source)
         runner = await _start_jobs(database, job_settings, job_handlers or {}, clock, engine)
         try:
             yield
@@ -122,6 +139,7 @@ def create_app(
     app.add_middleware(CsrfMiddleware)
     app.include_router(auth_router)
     app.include_router(intake_router)
+    app.include_router(grounding_router)
 
     @app.exception_handler(SQLAlchemyError)
     @app.exception_handler(OSError)
