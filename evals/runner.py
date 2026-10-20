@@ -31,8 +31,9 @@ from evals.metrics import (
     escalation_metrics,
     grounding_metrics,
 )
-from evals.schema import BadDraft, LabeledTicket, RecordedPrediction
+from evals.schema import BadDraft, LabeledTicket, Outcome, RecordedPrediction
 from scripts.policy_lib import POLICIES_PATH, policies_sha256, policies_version
+from services.api.escalation.pre_lookup import decide
 from services.api.llm.fake import FakeLLMClient
 from services.api.models.common import StrictModel
 from services.api.pipeline.classify import classify_ticket
@@ -41,6 +42,10 @@ ROOT = Path(__file__).resolve().parent.parent
 RESULTS_DIR = Path(__file__).parent / "results"
 PROMPTS_DIR = ROOT / "services" / "api" / "prompts"
 ESCALATION_RECALL_FLOOR = 0.95
+# Reasons that only the steps after the order lookup can produce (still recorded, not computed).
+POST_LOOKUP_REASONS = frozenset(
+    {"order_not_found", "order_mismatch", "repeat_complaint", "high_value", "outside_policy"}
+)
 
 # Set by the grounding branch. Until a validator exists the report says so instead of passing.
 GROUNDING_VALIDATOR: GroundingValidator | None = None
@@ -54,7 +59,8 @@ class Pipeline(Protocol):
 
 
 class RecordedPipeline:
-    """Classification through the real classification step (recorded client); routing recorded."""
+    """The real classification step (recorded client) and the real pre-lookup escalation rules.
+    The steps after the order lookup do not exist yet, so their routing is the recorded one."""
 
     name = "recorded-fake"
     gated = True
@@ -70,7 +76,26 @@ class RecordedPipeline:
             raise RuntimeError(
                 f"classification of {ticket.id} escalated: {stage.escalation_reason}"
             )
+        decision = decide(
+            classification, ticket.subject, corpus.resolve(ticket.body, ticket.scenario_case)
+        )
+        if decision.escalate:  # the real pre-lookup rules, not a recording
+            return Prediction(
+                intent=classification.intent,
+                urgency=classification.urgency.value,
+                outcome=Outcome.NO_DRAFT_ESCALATION,
+                escalation_reasons=decision.reasons,
+            )
         routing = self._recorded[ticket.id]
+        recorded_reasons = set(routing.escalation_reasons)
+        if recorded_reasons and not recorded_reasons <= POST_LOOKUP_REASONS:
+            # A recorded pre-lookup escalation the real rules did not reproduce is not carried
+            # over: this run shows what the rules do, so the miss stays visible.
+            return Prediction(
+                intent=classification.intent,
+                urgency=classification.urgency.value,
+                outcome=Outcome.DRAFT,
+            )
         return Prediction(
             intent=classification.intent,
             urgency=classification.urgency.value,
@@ -349,8 +374,8 @@ def main(
 
     if args.mode == "full":
         print(
-            "make eval needs the classification and escalation steps, which arrive with "
-            "feature/p2-classification and feature/p2-pre-lookup-escalation. Nothing was run.",
+            "make eval needs the later pipeline steps (order lookup, post-lookup escalation, "
+            "retrieval, drafting, grounding), which are not built yet. Nothing was run.",
             file=sys.stderr,
         )
         return 2

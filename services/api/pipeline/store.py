@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from services.api.db.tables import audit_log, tickets
 from services.api.llm.client import CallRecord
-from services.api.models.enums import TicketStatus
+from services.api.models.enums import Flag, Intent, Sentiment, TicketStatus, Urgency
 from services.api.models.ticket import Classification
 
 
@@ -22,6 +22,7 @@ class TicketText:
     status: TicketStatus
     subject: str | None
     body: str
+    classification: Classification | None = None  # set once the ticket is classified
 
 
 class PipelineStore:
@@ -32,14 +33,32 @@ class PipelineStore:
         async with self._engine.connect() as conn:
             row = (
                 await conn.execute(
-                    select(tickets.c.status, tickets.c.subject, tickets.c.body).where(
-                        tickets.c.ticket_id == ticket_id, tickets.c.deleted_at.is_(None)
-                    )
+                    select(
+                        tickets.c.status,
+                        tickets.c.subject,
+                        tickets.c.body,
+                        tickets.c.intent,
+                        tickets.c.urgency,
+                        tickets.c.confidence,
+                        tickets.c.sentiment,
+                        tickets.c.flags,
+                    ).where(tickets.c.ticket_id == ticket_id, tickets.c.deleted_at.is_(None))
                 )
             ).first()
         if row is None:
             return None
-        return TicketText(ticket_id, TicketStatus(row.status), row.subject, row.body)
+        classification = None
+        if row.intent is not None:
+            classification = Classification(
+                intent=Intent(row.intent),
+                urgency=Urgency(row.urgency),
+                confidence=float(row.confidence),
+                sentiment=Sentiment(row.sentiment),
+                flags=[Flag(flag) for flag in row.flags],
+            )
+        return TicketText(
+            ticket_id, TicketStatus(row.status), row.subject, row.body, classification
+        )
 
     async def save_classification(
         self,
@@ -68,20 +87,34 @@ class PipelineStore:
         return await self._advance(ticket_id, values, "ticket.classified", payload, now)
 
     async def escalate(
-        self, ticket_id: UUID, stage: str, reason: str, calls: list[CallRecord], now: datetime
+        self,
+        ticket_id: UUID,
+        stage: str,
+        reason: str,
+        calls: list[CallRecord],
+        now: datetime,
+        *,
+        from_status: TicketStatus = TicketStatus.NEW,
+        flags: list[Flag] | None = None,
+        detail: dict[str, Any] | None = None,
     ) -> bool:
-        """Hand a `new` ticket to the owner without a draft, saying why."""
+        """Hand a ticket to the owner without a draft, saying why. `flags` replaces the ticket's
+        flags (the classifier's plus any the deterministic checks added); `detail` goes into the
+        audit event."""
         payload: dict[str, Any] = {
             "stage": stage,
             "reason": reason,
             "calls": [call.audit_payload() for call in calls],
+            **(detail or {}),
         }
-        values = {
+        values: dict[str, Any] = {
             "status": TicketStatus.ESCALATED.value,
             "escalation_reason": reason,
             "updated_at": now,
         }
-        return await self._advance(ticket_id, values, "ticket.escalated", payload, now)
+        if flags is not None:
+            values["flags"] = [flag.value for flag in flags]
+        return await self._advance(ticket_id, values, "ticket.escalated", payload, now, from_status)
 
     async def _advance(
         self,
@@ -90,13 +123,14 @@ class PipelineStore:
         event_type: str,
         payload: dict[str, Any],
         now: datetime,
+        from_status: TicketStatus = TicketStatus.NEW,
     ) -> bool:
         async with self._engine.begin() as conn:
             result = await conn.execute(
                 update(tickets)
                 .where(
                     tickets.c.ticket_id == ticket_id,
-                    tickets.c.status == TicketStatus.NEW.value,
+                    tickets.c.status == from_status.value,
                     tickets.c.deleted_at.is_(None),
                 )
                 .values(**values)
