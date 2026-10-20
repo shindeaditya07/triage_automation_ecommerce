@@ -41,7 +41,8 @@ class Prompt:
 
 
 def load_prompt(path: Path) -> Prompt:
-    raw = path.read_bytes()
+    # Windows checkouts may use CRLF; read as LF so a file parses and hashes the same everywhere.
+    raw = path.read_bytes().replace(b"\r\n", b"\n")
     match = _FRONT_MATTER.match(raw.decode("utf-8"))
     if match is None:
         raise PromptError(f"{path.name}: missing '---' front matter")

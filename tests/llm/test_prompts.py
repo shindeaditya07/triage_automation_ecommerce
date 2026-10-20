@@ -112,3 +112,10 @@ def test_judge_message_lists_reply_citations_and_sources() -> None:
     text = judge_message(request)
     assert "<reply>\nIt arrives Friday.\n</reply>" in text
     assert "orders.eta" in text and 'id="SHP-4.3"' in text
+
+
+def test_a_prompt_with_windows_line_endings_loads_and_hashes_the_same(tmp_path: Path) -> None:
+    source = PROMPTS_DIR / "classify.md"
+    crlf = tmp_path / "classify.md"
+    crlf.write_bytes(source.read_bytes().replace(b"\n", b"\r\n"))
+    assert load_prompt(crlf) == load_prompt(source)

@@ -177,7 +177,7 @@ def prompt_hashes(directory: Path = PROMPTS_DIR) -> dict[str, str]:
     if not directory.is_dir():
         return {}
     return {
-        path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+        path.name: hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
         for path in sorted(directory.iterdir())
         if path.is_file() and not path.name.startswith(".")
     }
