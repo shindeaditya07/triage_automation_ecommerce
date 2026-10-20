@@ -176,7 +176,7 @@ def test_the_judge_cannot_be_the_drafters_provider_unless_allowed(
 def test_embeddings_need_an_openai_key_somewhere(monkeypatch: pytest.MonkeyPatch) -> None:
     same = REAL_MODELS | {"JUDGE_PROVIDER": "anthropic", "JUDGE_SAME_FAMILY_OK": "true"}
     _env(monkeypatch, **same)
-    with pytest.raises(ValidationError, match="OpenAI key"):
+    with pytest.raises(ValidationError, match="embeddings \\(openai\\) need a key"):
         Settings()  # type: ignore[call-arg]
 
 
@@ -215,3 +215,23 @@ def test_blank_judge_and_temperature_values_are_none(monkeypatch: pytest.MonkeyP
         None,
         None,
     )
+
+
+def test_an_all_gemini_setup_needs_one_key_and_an_explicit_same_family_judge(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    all_gemini = {
+        "LLM_PROVIDER": "gemini",
+        "LLM_API_KEY": GEMINI_KEY,
+        "LLM_MODEL": "drafter",
+        "JUDGE_PROVIDER": "gemini",
+        "JUDGE_API_KEY": GEMINI_KEY,
+        "JUDGE_MODEL": "judge",
+        "EMBED_PROVIDER": "gemini",
+    }
+    _env(monkeypatch, **all_gemini)
+    with pytest.raises(ValidationError, match="grade its own"):
+        Settings()  # type: ignore[call-arg]
+    _env(monkeypatch, **(all_gemini | {"JUDGE_SAME_FAMILY_OK": "true"}))
+    settings = Settings()  # type: ignore[call-arg]
+    assert settings.embedding_key().get_secret_value() == GEMINI_KEY  # type: ignore[union-attr]

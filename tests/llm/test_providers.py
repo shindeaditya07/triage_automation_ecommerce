@@ -13,7 +13,7 @@ from services.api.llm.errors import (
     LLMTimeoutError,
 )
 from services.api.llm.providers.anthropic import AnthropicChat
-from services.api.llm.providers.gemini import GeminiEmbedder
+from services.api.llm.providers.gemini import THINKING_HEADROOM, GeminiChat, GeminiEmbedder
 from services.api.llm.providers.openai import OpenAIChat, OpenAIEmbedder
 
 pytestmark = pytest.mark.anyio
@@ -298,3 +298,87 @@ async def test_gemini_errors_map_like_the_other_providers_and_carry_only_the_cat
     async with client(reply(503)) as http:
         with pytest.raises(LLMServerError):
             await GeminiEmbedder(http, KEY, "m").embed(["a"], 4, "document")
+
+
+def gemini_answer(
+    text: Any, finish: str = "STOP", usage: dict[str, int] | None = None
+) -> dict[str, Any]:
+    return {
+        "candidates": [{"finishReason": finish, "content": {"parts": [{"text": text}]}}],
+        "usageMetadata": usage or {"promptTokenCount": 20, "candidatesTokenCount": 5},
+    }
+
+
+async def test_gemini_chat_asks_for_json_with_the_schema_in_the_instructions() -> None:
+    seen: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        seen["key"] = request.headers["x-goog-api-key"]
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json=gemini_answer('{"a": 2}'))
+
+    async with client(handler) as http:
+        out = await GeminiChat(http, KEY, "g-model").complete(**ASK)
+    assert (out.data, out.input_tokens, out.output_tokens) == ({"a": 2}, 20, 5)
+    assert seen["url"].endswith("/v1beta/models/g-model:generateContent")
+    assert seen["key"] == KEY
+    body = seen["body"]
+    instructions = body["systemInstruction"]["parts"][0]["text"]
+    assert instructions.startswith("sys") and json.dumps(SCHEMA) in instructions
+    assert body["contents"] == [{"role": "user", "parts": [{"text": "usr"}]}]
+    config = body["generationConfig"]
+    assert config["responseMimeType"] == "application/json" and config["temperature"] == 0.0
+    assert config["maxOutputTokens"] == 50 + THINKING_HEADROOM
+    assert "responseSchema" not in config and "responseJsonSchema" not in config
+
+
+async def test_gemini_chat_omits_temperature_when_none_and_counts_thinking_as_output() -> None:
+    seen: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(request.content)
+        usage = {"promptTokenCount": 9, "candidatesTokenCount": 4, "thoughtsTokenCount": 30}
+        return httpx.Response(200, json=gemini_answer('{"a": 1}', usage=usage))
+
+    async with client(handler) as http:
+        out = await GeminiChat(http, KEY, "m").complete(**(ASK | {"temperature": None}))
+    assert "temperature" not in seen["body"]["generationConfig"]
+    assert (out.input_tokens, out.output_tokens) == (9, 34)
+
+
+async def test_gemini_chat_ignores_thought_parts_and_joins_the_rest() -> None:
+    parts = [{"text": "thinking...", "thought": True}, {"text": '{"a": '}, {"text": "3}"}]
+    body = {"candidates": [{"finishReason": "STOP", "content": {"parts": parts}}]}
+    async with client(reply(200, body)) as http:
+        out = await GeminiChat(http, KEY, "m").complete(**ASK)
+    assert out.data == {"a": 3}
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        gemini_answer('{"a": 1', "MAX_TOKENS"),
+        gemini_answer("not json"),
+        gemini_answer("[1, 2]"),
+        gemini_answer(None),
+        {"candidates": []},
+        {"promptFeedback": {"blockReason": "SAFETY"}},
+        {"candidates": [{"finishReason": "SAFETY"}]},
+    ],
+)
+async def test_gemini_chat_unusable_answers(payload: dict[str, Any]) -> None:
+    async with client(reply(200, payload)) as http:
+        with pytest.raises(LLMInvalidOutputError):
+            await GeminiChat(http, KEY, "m").complete(**ASK)
+
+
+async def test_gemini_chat_errors_map_like_the_other_providers() -> None:
+    async with client(reply(429, {}, {"retry-after": "3"})) as http:
+        with pytest.raises(LLMRateLimitError):
+            await GeminiChat(http, KEY, "m").complete(**ASK)
+    body = {"error": {"status": "INVALID_ARGUMENT", "message": "echoes the request"}}
+    async with client(reply(400, body)) as http:
+        with pytest.raises(LLMRequestError) as caught:
+            await GeminiChat(http, KEY, "m").complete(**ASK)
+    assert "echoes" not in str(caught.value)

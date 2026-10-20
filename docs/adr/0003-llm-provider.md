@@ -72,3 +72,28 @@ Status stays proposed. The owner asked to use a Gemini key for embeddings instea
   has masked card, account and phone numbers, so use a paid-tier key for real customer messages.
 - The Gemini adapter is tested against mocked responses only. The first run of
   `make index-policies` with a real key is the first proof it works.
+
+## Amendment 2026-10-20 (2): the drafter and judge can be Gemini
+
+Status stays proposed. The owner asked to run everything on one Gemini key.
+
+- `LLM_PROVIDER` and `JUDGE_PROVIDER` accept `gemini` (`providers/gemini.py`, `GeminiChat`, the
+  `generateContent` endpoint). With `EMBED_PROVIDER=gemini` too, one key can serve all three: the
+  embedding key falls back to `LLM_API_KEY` or `JUDGE_API_KEY` when one is from the same provider.
+- **The independent judge is lost.** The rule that a judge comes from a different provider than
+  the drafter exists so a model does not grade its own writing. An all-Gemini setup needs
+  `JUDGE_SAME_FAMILY_OK=true`. Mitigations: use a different, stronger model for the judge than
+  for the drafter, and keep the rule-based checks (citations must be passages that were retrieved,
+  amounts and dates must match the order) that do not use a model. This is a weaker guarantee, not
+  an equal one.
+- Replies are requested as JSON (`responseMimeType`) with the schema in the instructions, not as a
+  Gemini response schema, because Gemini accepts only part of JSON Schema there. The gateway
+  checks every answer against the schema either way.
+- Gemini 2.5 and later models think before answering, and thinking tokens count against
+  `maxOutputTokens`. The adapter adds 2048 tokens of headroom and bills thinking tokens as output.
+  Cost per ticket is therefore higher than the visible answer suggests.
+- Data use: the free tier may use submitted content to improve Google's products. Classifying and
+  drafting send the customer's message (masked card, account and phone numbers, but not names or
+  addresses), so use a paid-tier project for real customers. Free is fine for synthetic tickets.
+- The adapter is tested against mocked responses only. The first live classify run (`make eval`
+  with real keys) is the first proof it works and may need small fixes to the request shape.

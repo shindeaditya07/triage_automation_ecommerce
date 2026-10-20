@@ -16,7 +16,7 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from services.api.models.records import EMBEDDING_DIMENSIONS
 
 Environment = Literal["local", "ci", "staging", "nonprod", "production"]
-Provider = Literal["fake", "anthropic", "openai"]
+Provider = Literal["fake", "anthropic", "openai", "gemini"]
 EmbedProvider = Literal["openai", "gemini"]
 DEFAULT_EMBED_MODELS: dict[EmbedProvider, str] = {
     "openai": "text-embedding-3-small",
@@ -193,8 +193,8 @@ class LLMSettings(BaseSettings):
     # By default the judge must come from a different provider than the drafter, so a model never
     # grades its own output. Set true only to accept that on purpose.
     judge_same_family_ok: bool = False
-    # Embeddings come from OpenAI or Gemini (EMBED_PROVIDER). With OpenAI the key falls back to
-    # LLM_API_KEY / JUDGE_API_KEY when one of them is an OpenAI key; Gemini needs EMBED_API_KEY.
+    # Embeddings come from OpenAI or Gemini (EMBED_PROVIDER). The key falls back to LLM_API_KEY or
+    # JUDGE_API_KEY when one of them is from the same provider.
     embed_provider: EmbedProvider = "openai"
     embed_api_key: SecretStr | None = None
     # Blank means the provider's default model (see DEFAULT_EMBED_MODELS).
@@ -270,24 +270,20 @@ class LLMSettings(BaseSettings):
                 "output (set JUDGE_SAME_FAMILY_OK=true to accept that)"
             )
         if self.embedding_key() is None:
-            hint = (
-                ", or use an OpenAI key as LLM_API_KEY or JUDGE_API_KEY"
-                if self.embed_provider == "openai"
-                else ""
-            )
             raise ValueError(
-                f"embeddings ({self.embed_provider}) need a key: set EMBED_API_KEY{hint}"
+                f"embeddings ({self.embed_provider}) need a key: set EMBED_API_KEY, or use a "
+                f"{self.embed_provider} key as LLM_API_KEY or JUDGE_API_KEY"
             )
         return self
 
     def embedding_key(self) -> SecretStr | None:
         if self.embed_api_key:
             return self.embed_api_key
-        if self.embed_provider == "openai":
-            if self.llm_provider == "openai":
-                return self.llm_api_key
-            if self.judge_provider == "openai":
-                return self.judge_api_key
+        # A drafter or judge from the same company as the embeddings can share its key.
+        if self.llm_provider == self.embed_provider:
+            return self.llm_api_key
+        if self.judge_provider == self.embed_provider:
+            return self.judge_api_key
         return None
 
 
