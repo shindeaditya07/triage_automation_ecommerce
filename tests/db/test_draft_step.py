@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from services.api.llm.errors import LLMInvalidOutputError
+from services.api.llm.errors import LLMInvalidOutputError, LLMRequestError
 from services.api.llm.fake import FakeLLMClient
 from services.api.models.enums import Intent
 from services.api.pipeline.draft import DraftingConfig
@@ -28,8 +28,13 @@ pytestmark = pytest.mark.anyio
 class Client(ScriptedDrafter):
     """Classifies with the given classification and drafts from the script."""
 
-    def __init__(self, drafts: list[Any], intent: Intent = Intent.ORDER_STATUS) -> None:
-        super().__init__(drafts)
+    def __init__(
+        self,
+        drafts: list[Any],
+        intent: Intent = Intent.ORDER_STATUS,
+        judgements: list[Any] | None = None,
+    ) -> None:
+        super().__init__(drafts, judgements)
         self._classification = good().model_copy(update={"intent": intent})
 
     async def classify(self, request: Any) -> Any:
@@ -82,7 +87,9 @@ async def test_a_clean_ticket_gets_a_stored_draft_and_becomes_drafted(
     assert draft.reply_text.endswith(SIGN_OFF)
     assert str(draft.order_snapshot_id) == ticket.order_lookup["snapshot_id"]
     assert draft.retrieved_passage_ids[0] == "TON-9.2"
-    assert draft.review_status == "pending" and draft.grounding_result is None
+    assert draft.review_status == "pending"
+    assert draft.grounding_result["passed"] is True
+    assert draft.grounding_result["judge"]["grounded"] is True
     assert draft.policy_version == "1.1"
     kinds = [e.event_type for e in await events(engine, ticket_id)]
     assert kinds == ["ticket.classified", "ticket.order_lookup", "ticket.drafted"]
@@ -165,3 +172,63 @@ async def test_a_job_that_stopped_before_drafting_resumes_there(engine: AsyncEng
     await (await drafting_handler(engine, client))(job_for(ticket_id))
     assert (await row(engine, ticket_id)).status == "drafted"
     assert len(await drafts_of(engine, ticket_id)) == 1
+
+
+PROMISE = output(f"We will refund you today.\n\n{SIGN_OFF}")
+
+
+async def test_a_draft_that_fails_once_is_retried_and_the_failure_is_audited(
+    engine: AsyncEngine,
+) -> None:
+    ticket_id = await ticket_for(engine, 1)
+    client = Client([PROMISE, output()])
+    await (await drafting_handler(engine, client))(job_for(ticket_id))
+
+    [draft] = await drafts_of(engine, ticket_id)
+    assert (draft.attempt, draft.kind) == (2, "llm") and draft.reply_text != PROMISE.reply_text
+    kinds = [e.event_type for e in await events(engine, ticket_id)]
+    assert kinds == [
+        "ticket.classified",
+        "ticket.order_lookup",
+        "draft.attempt_failed",
+        "ticket.drafted",
+    ]
+    failed = next(e for e in await events(engine, ticket_id) if e.event_type.endswith("failed"))
+    assert failed.payload["outcome"] == "grounding_failed" and "G-3" in failed.payload["rule_ids"]
+    assert PROMISE.reply_text not in str(failed.payload)  # the rejected text is not kept
+
+
+async def test_two_failures_store_the_fallback_template_for_the_owner(
+    engine: AsyncEngine,
+) -> None:
+    ticket_id = await ticket_for(engine, 1)
+    client = Client([PROMISE, PROMISE])
+    await (await drafting_handler(engine, client))(job_for(ticket_id))
+
+    assert (await row(engine, ticket_id)).status == "drafted"
+    [draft] = await drafts_of(engine, ticket_id)
+    assert (draft.attempt, draft.kind) == (3, "fallback_template")
+    assert draft.model == "fallback-template" and draft.review_status == "pending"
+    assert draft.reply_text.endswith(SIGN_OFF) and "refund" not in draft.reply_text
+    assert draft.input_tokens is None and draft.grounding_result["passed"] is True
+    assert (
+        str(draft.order_snapshot_id) == (await row(engine, ticket_id)).order_lookup["snapshot_id"]
+    )
+    kinds = [e.event_type for e in await events(engine, ticket_id)]
+    assert kinds[2:] == [
+        "draft.attempt_failed",
+        "draft.attempt_failed",
+        "draft.fallback_used",
+        "ticket.drafted",
+    ]
+    assert len(client.requests) == 2
+
+
+async def test_a_judge_outage_escalates_with_the_draft_discarded(engine: AsyncEngine) -> None:
+    ticket_id = await ticket_for(engine, 1)
+    client = Client([output()], judgements=[LLMRequestError(500)])
+    await (await drafting_handler(engine, client))(job_for(ticket_id))
+
+    ticket = await row(engine, ticket_id)
+    assert (ticket.status, ticket.escalation_reason) == ("escalated", "grounding_unavailable")
+    assert await drafts_of(engine, ticket_id) == []

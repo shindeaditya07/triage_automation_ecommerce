@@ -7,12 +7,13 @@ from uuid import uuid4
 import pytest
 
 from services.api.context.lookup import ContextLookup, LookupResult
-from services.api.llm.client import DraftRequest, LLMResult
+from services.api.llm.client import DraftRequest, JudgeRequest, LLMResult
 from services.api.llm.errors import LLMInvalidOutputError, LLMRequestError
 from services.api.llm.fake import FakeLLMClient
 from services.api.models import Order
 from services.api.models.draft import DraftOutput
 from services.api.models.enums import Intent, TicketStatus
+from services.api.models.judge import JudgeOutput
 from services.api.pipeline.draft import (
     INVALID_OUTPUT_REASON,
     RETRIEVAL_FAILED_REASON,
@@ -33,12 +34,30 @@ RECEIVED = datetime(2026, 10, 15, 12, 0, tzinfo=UTC)
 
 
 class ScriptedDrafter(FakeLLMClient):
-    """Replays drafts (or raises errors) in order, and keeps the requests it was given."""
+    """Replays drafts (or raises errors) in order, and keeps the requests it was given. The judge
+    accepts every draft unless `judgements` scripts something else (in order, last one repeats)."""
 
-    def __init__(self, script: list[Any]) -> None:
+    def __init__(self, script: list[Any], judgements: list[Any] | None = None) -> None:
         super().__init__()
         self.script = list(script)
         self.requests: list[DraftRequest] = []
+        self.judgements = list(judgements or [])
+        self.judge_requests: list[JudgeRequest] = []
+
+    async def judge(self, request: JudgeRequest) -> LLMResult[JudgeOutput]:
+        self.judge_requests.append(request)
+        item = (
+            self.judgements.pop(0)
+            if len(self.judgements) > 1
+            else (
+                self.judgements[0]
+                if self.judgements
+                else JudgeOutput(grounded=True, confidence=0.9)
+            )
+        )
+        if isinstance(item, Exception):
+            raise item
+        return LLMResult(item, self._record("judge", "judge"))
 
     async def draft(self, request: DraftRequest) -> LLMResult[DraftOutput]:
         self.requests.append(request)
@@ -98,7 +117,7 @@ async def test_the_draft_is_made_from_the_order_and_the_retrieved_policy(
     assert stage.draft is not None and stage.escalation_reason is None
     assert stage.draft.order_snapshot_id == snapshot_id  # recorded from the step, not the model
     assert stage.draft.policy_version == config.index.version
-    assert [c.purpose for c in stage.calls] == ["embed", "draft"]
+    assert [c.purpose for c in stage.calls] == ["embed", "draft", "judge"]
     [request] = client.requests
     assert request.order is not None and request.order["order_id"] == an_order().order_id
     assert "customer_email" not in request.order  # the sender's address stays out

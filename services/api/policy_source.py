@@ -21,6 +21,12 @@ def policies_path() -> Path:
     return Path(os.environ.get("POLICIES_PATH") or DEFAULT_PATH)
 
 
+@lru_cache(maxsize=1)
+def loaded_passages() -> dict[str, str]:
+    """Policy ID -> passage text for the policy set this process loaded."""
+    return parse_passages(policies_path().read_text(encoding="utf-8"))
+
+
 def policies_version(text: str) -> str:
     match = _VERSION.search(text)
     if match is None:

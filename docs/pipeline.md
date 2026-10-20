@@ -124,17 +124,28 @@ the suggestion-only one.
    this customer's order (the sender's email address is removed), the passages, and the store's
    sign-off. Nothing else.
 3. **An invalid answer is tried once more** with the field errors put back in front of the model.
-   A second invalid answer escalates as `draft_invalid_output`; any other model failure escalates
-   with its own reason.
-4. **Store the draft** (`drafts`, attempt 1) with what it was made from: the order snapshot, the
-   passage IDs, the prompt version and hash, the model, the policy version and the token counts.
-   These come from this step's own inputs, not from what the model reports. The ticket moves from
-   `classified` to `drafted`, with a `ticket.drafted` audit event. A suggestion-only draft is
-   marked `suggestion_only` and the ticket keeps `escalation_reason=outside_policy`.
+   Two invalid answers in a row escalate as `draft_invalid_output`; any other model failure
+   escalates with its own reason.
+4. **Check the draft is grounded** (`docs/grounding.md`): the deterministic rules, then the judge.
+   A draft that fails is asked for once more with the failures listed in front of the model (rule,
+   reason and the offending words, never customer data). At most two drafts are ever requested.
+5. **A second failure uses the fallback template** (`fallback_template` in
+   `grounding_config.yaml`): a short fixed reply with the store's sign-off that states no facts and
+   makes no promise. The rules are run on it before it is used; if they ever fail it, the ticket
+   escalates as `fallback_template_invalid` instead. An invalid answer after a grounding failure
+   also falls back. A judge that cannot answer escalates as `grounding_unavailable`, because a
+   second draft would not help.
+6. **Store the draft** (`drafts`) with what it was made from: the order snapshot, the passage IDs,
+   the prompt version and hash, the model, the policy version, the token counts and the grounding
+   result. These come from this step's own inputs, not from what the model reports. `attempt` is 1
+   or 2 for a model draft and 3 for the fallback (`kind = fallback_template`). The ticket moves
+   from `classified` to `drafted`. Audit events: `draft.attempt_failed` for each failed attempt
+   (outcome, rule IDs and reasons, never the rejected text), `draft.fallback_used` when the
+   template was used (this is the owner-visible flag: the queue marks any draft whose `kind` is
+   `fallback_template`), and `ticket.drafted`. A suggestion-only draft is marked `suggestion_only`
+   and the ticket keeps `escalation_reason=outside_policy`.
 
-**A stored draft is not yet checked.** The grounding validator (every fact cited, no promises, the
-sign-off) is the next branch, and until it exists `grounding_result` stays empty and no draft may
-be shown to the owner as approved. Nothing in the app reads drafts yet.
+Every draft in `drafts` has been checked. Nothing in the app reads drafts yet.
 
 Without a `DraftingConfig` the handler stops after routing; the earlier steps' tests rely on that.
 

@@ -133,6 +133,7 @@ couriers: []
 allowed_names: []
 order_id_patterns: ["RD-\\\\d+"]
 tracking_patterns: []
+fallback_template: "Hello.\\n\\n{sign_off}"
 """
 
 
@@ -150,6 +151,17 @@ def test_config_from_a_path_and_from_the_environment(
     assert grounding_config.load_config(file).max_reply_chars == 100
     monkeypatch.setenv("GROUNDING_CONFIG_PATH", str(file))
     assert grounding_config.load_config().max_reply_chars == 100
+
+
+def test_the_fallback_template_is_filled_and_must_end_with_the_sign_off(tmp_path: Path) -> None:
+    cfg = grounding_config.default_config()
+    text = cfg.fallback_text("Test Store")
+    assert text.endswith("Test Store") and "{sign_off}" not in text
+    file = tmp_path / "g.yaml"
+    for bad in ('"Hello."', '"{sign_off} then more"', '"{sign_off} and {sign_off}"'):
+        file.write_text(MINIMAL.replace('"Hello.\\n\\n{sign_off}"', bad), encoding="utf-8")
+        with pytest.raises(ValidationError):
+            grounding_config.load_config(file)
 
 
 def test_a_bad_regex_is_rejected_at_load(tmp_path: Path) -> None:

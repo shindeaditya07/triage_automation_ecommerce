@@ -2,6 +2,7 @@
 event, and only applies to a ticket still in the state the step expects, so a job that runs twice
 changes nothing the second time."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -15,7 +16,7 @@ from services.api.db.tables import audit_log, drafts, order_snapshots, tickets
 from services.api.llm.client import CallRecord
 from services.api.models import CustomerHistory, Order
 from services.api.models.draft import DraftOutput
-from services.api.models.enums import Flag, Intent, Sentiment, TicketStatus, Urgency
+from services.api.models.enums import DraftKind, Flag, Intent, Sentiment, TicketStatus, Urgency
 from services.api.models.ticket import Classification
 
 
@@ -245,11 +246,21 @@ class PipelineStore:
         calls: list[CallRecord],
         suggestion_only: bool,
         now: datetime,
+        grounding_result: dict[str, Any] | None = None,
+        kind: DraftKind = DraftKind.LLM,
+        attempt: int = 1,
+        failed_attempts: Sequence[dict[str, Any]] = (),
     ) -> bool:
-        """Store the first draft with what it was made from, and move the ticket from
+        """Store the final draft with what it was made from, and move the ticket from
         `classified` to `drafted`. False when the ticket was not `classified` (already drafted or
-        escalated), in which case nothing changes."""
-        call = next((c for c in reversed(calls) if c.purpose == "draft"), None)
+        escalated), in which case nothing changes.
+
+        `attempt` is 1 or 2 for a model draft and 3 for the fallback template. Earlier attempts
+        that failed are kept as audit events (rules and reasons, not their text). A fallback draft
+        also gets a `draft.fallback_used` event, which is how the owner's queue marks it."""
+        call = None
+        if kind is DraftKind.LLM:
+            call = next((c for c in reversed(calls) if c.purpose == "draft"), None)
         async with self._engine.begin() as conn:
             moved = await conn.execute(
                 update(tickets)
@@ -267,7 +278,8 @@ class PipelineStore:
                 insert(drafts).values(
                     draft_id=draft_id,
                     ticket_id=ticket_id,
-                    attempt=1,
+                    attempt=attempt,
+                    kind=kind.value,
                     suggestion_only=suggestion_only,
                     reply_text=draft.reply_text,
                     citations=[c.model_dump(mode="json") for c in draft.citations],
@@ -279,26 +291,42 @@ class PipelineStore:
                     policy_version=draft.policy_version,
                     order_snapshot_id=draft.order_snapshot_id,
                     retrieved_passage_ids=passage_ids,
+                    grounding_result=grounding_result,
                     input_tokens=call.input_tokens if call else None,
                     output_tokens=call.output_tokens if call else None,
                     latency_ms=call.latency_ms if call else None,
                     created_at=now,
                 )
             )
-            await conn.execute(
-                insert(audit_log).values(
-                    ticket_id=ticket_id,
-                    event_type="ticket.drafted",
-                    actor="system",
-                    payload={
+            events: list[tuple[str, dict[str, Any]]] = [
+                ("draft.attempt_failed", dict(failed)) for failed in failed_attempts
+            ]
+            if kind is DraftKind.FALLBACK_TEMPLATE:
+                events.append(("draft.fallback_used", {"draft_id": str(draft_id)}))
+            events.append(
+                (
+                    "ticket.drafted",
+                    {
                         "draft_id": str(draft_id),
+                        "kind": kind.value,
+                        "attempt": attempt,
                         "suggestion_only": suggestion_only,
                         "passages": passage_ids,
+                        "grounding": grounding_result,
                         "calls": [c.audit_payload() for c in calls],
                     },
-                    occurred_at=now,
                 )
             )
+            for event_type, payload in events:
+                await conn.execute(
+                    insert(audit_log).values(
+                        ticket_id=ticket_id,
+                        event_type=event_type,
+                        actor="system",
+                        payload=payload,
+                        occurred_at=now,
+                    )
+                )
         return True
 
     async def count_thread_messages(self, ticket_id: UUID) -> int:
