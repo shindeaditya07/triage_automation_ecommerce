@@ -11,13 +11,14 @@ from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel
 
-from evals.schema import BadDraft, LabeledTicket, RecordedPrediction
+from evals.schema import BadDraft, GoodDraft, LabeledTicket, RecordedPrediction
 from scripts.policy_lib import POLICIES_PATH, parse_passages
 from services.api.models.enums import Intent, Urgency
 
 HERE = Path(__file__).parent
 LABELED_PATH = HERE / "datasets" / "labeled.jsonl"
 BAD_DRAFTS_PATH = HERE / "datasets" / "bad_drafts.jsonl"
+GOOD_DRAFTS_PATH = HERE / "datasets" / "good_drafts.jsonl"
 RECORDED_PATH = HERE / "fixtures" / "recorded_predictions.jsonl"
 
 EVAL_NOW = datetime(2026, 10, 15, 12, 0, tzinfo=UTC)
@@ -81,6 +82,10 @@ def load_labeled(path: Path = LABELED_PATH) -> list[LabeledTicket]:
 
 def load_bad_drafts(path: Path = BAD_DRAFTS_PATH) -> list[BadDraft]:
     return _load(path, BadDraft)
+
+
+def load_good_drafts(path: Path = GOOD_DRAFTS_PATH) -> list[GoodDraft]:
+    return _load(path, GoodDraft)
 
 
 def load_recorded(path: Path = RECORDED_PATH) -> list[RecordedPrediction]:
