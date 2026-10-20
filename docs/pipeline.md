@@ -70,13 +70,47 @@ store (`GET /orders/{order_id}?email=<sender>`, explicit timeout) and records wh
 The summary (result, id, candidate count, snapshot id, the customer's order and complaint counts)
 is stored in `tickets.order_lookup` (migration 0004) and in the `ticket.order_lookup` audit event.
 `order_lookup` is null until the step has run, which is how a retried job knows not to repeat it.
-What each result means for the ticket (escalate, draft, ask) is the next step, post-lookup
-escalation.
+What each result means for the ticket is step 4.
 
 If the store cannot be reached (timeout, connection error, 5xx) the job fails and is retried with
 the job runner's backoff; after its attempts it goes dead and the ticket shows as failed with the
 reason. A store reply that breaks the data contract fails the job at once, since retrying cannot
 fix it.
+
+## Step 4: post-lookup escalation (`services/api/escalation/post_lookup.py`)
+
+Runs once the lookup is recorded, with no model call (spec 14.2). The handler rebuilds the lookup
+from the ticket and its order snapshot, so a job that stopped after step 3 resumes here.
+
+**No draft, to the owner** (`status = escalated`, stage `post_lookup`; every reason that applies
+is recorded, comma-joined):
+
+| Reason | Trigger |
+|---|---|
+| `order_not_found` | the lookup result is `not_found` |
+| `order_mismatch` | the lookup result is `mismatch` (flag already set by step 3) |
+| `repeat_complaint` | the ticket is the 3rd or later message on its thread (ESC-8.2, counted in the `tickets` table, `repeat_complaint_message_count`); the flag is set here |
+| `high_value` | order value strictly above `high_value_threshold_paise` (ESC-8.1); the flag is set here, never by the model |
+
+**Suggestion only** (ESC-8.3): the ticket stays `classified` and `escalation_reason` is set to
+`outside_policy`, which is how the draft step will know to make a draft the owner cannot
+one-click approve. Audit event `ticket.suggestion_only` lists the triggers:
+
+| Trigger | Rule |
+|---|---|
+| `return_window_closed` | intent `return` or `refund`, delivered order, no refund yet, asked after 23:59:59 IST on the 7th calendar day after delivery (RET-1.1, RET-1.5) |
+| `damage_window_closed` | intent `damaged_item`, report more than 48 hours after the delivery timestamp (DMG-3.1, DMG-3.3) |
+| `compensation_request` | the classifier's `compensation_request` flag |
+| `final_sale_not_damaged` | intent `return` or `refund`, an item flagged final sale, no damage report. In a multi-item order the rule cannot tell which item the customer means, so it errs towards the owner |
+
+Everything else is drafted. An order that could not be pinned down (`ambiguous`, `no_order`) is
+not an escalation: the draft asks the customer which order they mean. A product question the FAQ
+cannot answer is also outside policy, but only the FAQ search can see that, so it is decided in
+the policy-retrieval step.
+
+No-draft reasons win over outside-policy ones. The windows (`services/api/time_utils.py`) judge the
+moment the customer wrote (`received_at`), not when the job runs, so a retry hours later cannot
+change the answer; the functions take that moment as an argument and read no clock.
 
 ## Not wired yet
 
