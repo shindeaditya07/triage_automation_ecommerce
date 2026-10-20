@@ -1,7 +1,9 @@
 """The `process_ticket` job handler: classify, check for pre-lookup escalation, look up the order,
-check for post-lookup escalation, draft the reply. Later branches add the steps after."""
+check for post-lookup escalation, draft the reply and check it is grounded. Later branches add the
+steps after."""
 
 import logging
+from dataclasses import asdict
 
 from services.api.clock import Clock
 from services.api.context.client import OrderStoreClient, StoreContractError
@@ -151,7 +153,16 @@ def make_process_ticket_handler(
                 calls=written.calls,
                 suggestion_only=suggestion_only,
                 now=clock(),
+                grounding_result=written.grounding.audit_payload() if written.grounding else None,
+                kind=written.kind,
+                attempt=written.attempt,
+                failed_attempts=[asdict(f) for f in written.failed_attempts],
             )
-            log.info("draft stored (suggestion_only=%s)", suggestion_only)
+            log.info(
+                "draft stored (kind=%s, attempt=%d, suggestion_only=%s)",
+                written.kind.value,
+                written.attempt,
+                suggestion_only,
+            )
 
     return handle

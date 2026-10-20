@@ -145,3 +145,13 @@ tracking_patterns:
 
 # G-6: addresses the store itself may mention (its own support address).
 allowed_emails: []
+
+# Used when a second draft also fails the grounding check (spec 13.3). It states no fact and makes
+# no promise, so it cannot fail the rules itself; the pipeline checks that before using it.
+# {sign_off} is replaced with the store's sign-off and must be the last thing in the text.
+fallback_template: |
+  Hello,
+
+  Thank you for getting in touch. We have received your message, and the store owner will read it and reply to you personally.
+
+  {sign_off}

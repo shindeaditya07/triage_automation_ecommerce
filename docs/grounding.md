@@ -11,9 +11,10 @@ A `ValidationResult` lists named `RuleFailure`s (rule ID, the offending span, on
 `citation_missing` when the value is right but no citation backs it). It never returns a bare
 pass or fail. The rules fail closed: a value they cannot place is a failure.
 
-**Status in the pipeline:** the validator and the judge exist and are tested, but nothing in the
-pipeline calls them yet. A stored draft is still unchecked (`grounding_result` is NULL). Wiring
-them in, with the retry and the fallback template, is the next branch (`p3-retry-and-fallback`).
+**Status in the pipeline:** the drafting step runs the check on every draft (`docs/pipeline.md`,
+steps 4 to 6). A failed draft is retried once with the reasons, then replaced by the fixed
+fallback template. The process_ticket handler is still not registered in the app, so nothing runs
+this in staging yet. Owner edits are not checked yet (next branch).
 
 ## The judge and the combined check
 
@@ -30,8 +31,17 @@ point. It returns a `GroundingResult` (stored with the draft) and the judge call
    `judge_error` set. A draft is never waved through because the check was unavailable.
 
 The judge's confidence is stored but does not block on its own. The prompt tells the judge to treat
-doubt as unsupported. Nothing yet decides what to do with a draft blocked only because the judge was
-down; that is the retry branch's call.
+doubt as unsupported. A draft blocked only because the judge was down is not retried (a second
+draft cannot fix an outage); the ticket escalates as `grounding_unavailable`.
+
+## Retry and fallback
+
+`draft_ticket` asks for at most two drafts. After a failure the second request carries the
+failure reasons. If the second also fails, `fallback_template` from the config is used, after the
+rules have confirmed it is safe for that ticket. The fallback is stored with `attempt = 3`,
+`kind = fallback_template`, `model = fallback-template`, confidence 0 and `proposed_action =
+escalate`, and gets a `draft.fallback_used` audit event. The failed attempts are kept as
+`draft.attempt_failed` events with their rules and reasons but not their text.
 
 With the all-Gemini setup the drafter and the judge are the same model family
 (`JUDGE_SAME_FAMILY_OK=true`), so the judge is a weaker independent check than spec 13.2 intends.
