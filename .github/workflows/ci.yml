@@ -62,6 +62,8 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --frozen
       - run: uv run pytest --cov=services --cov-report=term-missing
+      - name: Grounding coverage gate (95% branch, spec 13.4)
+        run: uv run pytest tests/grounding -q --cov=services/api/grounding --cov-branch --cov-fail-under=95
 
   test-frontend:
     name: Test (Frontend)

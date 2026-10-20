@@ -28,6 +28,7 @@ def _run(**overrides: Any) -> runner.Report:
 @pytest.fixture(autouse=True)
 def _no_validator(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(runner, "GROUNDING_VALIDATOR", None)
+    monkeypatch.setattr(runner, "GOOD_DRAFT_CHECK", None)
 
 
 def test_committed_smoke_run_passes_and_says_grounding_was_not_evaluated() -> None:
@@ -100,6 +101,28 @@ def test_a_registered_validator_is_scored_and_a_miss_fails(monkeypatch: pytest.M
     bad = _run()
     assert not bad.passed
     assert any(f.startswith("grounding: validator missed") for f in bad.failures)
+
+
+def test_the_real_validator_catches_every_bad_draft_and_blocks_no_good_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from evals.grounding import blocked_good_drafts, failing_rules
+
+    monkeypatch.setattr(runner, "GROUNDING_VALIDATOR", failing_rules)
+    monkeypatch.setattr(runner, "GOOD_DRAFT_CHECK", blocked_good_drafts)
+    report = _run()
+    assert report.passed, report.failures
+    assert report.grounding.status == "evaluated"
+    assert report.grounding.false_blocks == {}
+    assert "good drafts wrongly blocked: none" in runner.render_markdown(report)
+
+
+def test_a_blocked_good_draft_fails_the_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(runner, "GROUNDING_VALIDATOR", lambda d, o: set(d.expected_rules))
+    monkeypatch.setattr(runner, "GOOD_DRAFT_CHECK", lambda: {"V001": ["G-1: wrong amount"]})
+    report = _run()
+    assert not report.passed
+    assert any("good drafts blocked: V001" in f for f in report.failures)
 
 
 def test_validator_receives_the_seeded_order(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -101,6 +101,18 @@ class BadDraft(StrictModel):
     proposed_action: ProposedAction = ProposedAction.NONE
 
 
+class GoodDraft(StrictModel):
+    """A correct draft. The validator must pass every one; a block here is a false positive."""
+
+    id: str = Field(pattern=r"^V\d{3}$")
+    order_case: int | None = Field(ge=1, le=31, description="Mock-store case supplying the order.")
+    description: str
+    customer_message: str | None = None
+    reply_text: str = Field(min_length=1)
+    citations: list[Citation] = Field(default_factory=list)
+    proposed_action: ProposedAction = ProposedAction.NONE
+
+
 class RecordedClassification(StrictModel):
     intent: Intent
     urgency: Urgency

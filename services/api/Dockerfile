@@ -15,6 +15,7 @@ COPY --from=builder /app/.venv /app/.venv
 COPY services/__init__.py services/__init__.py
 COPY services/api services/api
 COPY policy_constants.yaml policy_constants.yaml
+COPY grounding_config.yaml grounding_config.yaml
 COPY docs/policies.md docs/policies.md
 USER appuser
 EXPOSE 8000

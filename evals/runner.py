@@ -22,6 +22,7 @@ from pydantic import Field
 
 from evals import corpus, retrieval
 from evals.baseline import BaselinePipeline
+from evals.grounding import blocked_good_drafts, failing_rules
 from evals.metrics import (
     ClassificationMetrics,
     EscalationMetrics,
@@ -73,8 +74,10 @@ async def _look_up(ticket: LabeledTicket) -> ContextLookup:
         )
 
 
-# Set by the grounding branch. Until a validator exists the report says so instead of passing.
-GROUNDING_VALIDATOR: GroundingValidator | None = None
+# The deterministic validator. Set to None and the report says "not evaluated" instead of passing.
+GROUNDING_VALIDATOR: GroundingValidator | None = failing_rules
+# Runs the good drafts through it and returns the ones it blocked (false positives).
+GOOD_DRAFT_CHECK: Callable[[], dict[str, list[str]]] | None = blocked_good_drafts
 
 
 class Pipeline(Protocol):
@@ -140,6 +143,9 @@ class GroundingReport(StrictModel):
     status: str
     detail: str
     metrics: GroundingMetrics | None = None
+    false_blocks: dict[str, list[str]] | None = Field(
+        default=None, description="Good drafts the validator blocked, with the reasons."
+    )
 
 
 class RetrievalReport(StrictModel):
@@ -219,10 +225,16 @@ def _grounding(drafts: Sequence[BadDraft]) -> GroundingReport:
         GROUNDING_VALIDATOR,
         lambda d: corpus.order_json_for_case(d.order_case),
     )
+    false_blocks = GOOD_DRAFT_CHECK() if GOOD_DRAFT_CHECK is not None else None
+    good = len(corpus.load_good_drafts())
+    detail = f"{metrics.caught.successes} of {metrics.caught.total} bad drafts caught"
+    if false_blocks is not None:
+        detail += f"; {len(false_blocks)} of {good} good drafts wrongly blocked"
     return GroundingReport(
         status="evaluated",
-        detail=f"{metrics.caught.successes} of {metrics.caught.total} bad drafts caught",
+        detail=detail,
         metrics=metrics,
+        false_blocks=false_blocks,
     )
 
 
@@ -289,6 +301,10 @@ def run(
     )
     if grounding.metrics is not None and grounding.metrics.missed:
         failures.append(f"grounding: validator missed {', '.join(grounding.metrics.missed)}")
+    if grounding.false_blocks:
+        failures.append(
+            f"grounding: good drafts blocked: {', '.join(sorted(grounding.false_blocks))}"
+        )
     return Report(
         meta=meta,
         problems=problems,
@@ -398,7 +414,11 @@ def render_markdown(report: Report) -> str:
     lines += [f"## Grounding: {report.grounding.status}", "", report.grounding.detail, ""]
     if report.grounding.metrics is not None:
         g = report.grounding.metrics
-        lines += [f"- caught: {_fmt(g.caught)}", f"- right rule reported: {_fmt(g.rule_match)}", ""]
+        lines += [f"- caught: {_fmt(g.caught)}", f"- right rule reported: {_fmt(g.rule_match)}"]
+        if report.grounding.false_blocks is not None:
+            blocked = ", ".join(sorted(report.grounding.false_blocks)) or "none"
+            lines.append(f"- good drafts wrongly blocked: {blocked}")
+        lines.append("")
     return "\n".join(lines)
 
 
