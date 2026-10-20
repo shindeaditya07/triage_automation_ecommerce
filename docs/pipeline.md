@@ -105,8 +105,8 @@ one-click approve. Audit event `ticket.suggestion_only` lists the triggers:
 
 Everything else is drafted. An order that could not be pinned down (`ambiguous`, `no_order`) is
 not an escalation: the draft asks the customer which order they mean. A product question the FAQ
-cannot answer is also outside policy, but only the FAQ search can see that, so it is decided in
-the policy-retrieval step.
+cannot answer is also outside policy, but no order field shows that and a similarity score cannot
+either (see `docs/retrieval.md`), so the drafting step decides it from the passages it was given.
 
 No-draft reasons win over outside-policy ones. The windows (`services/api/time_utils.py`) judge the
 moment the customer wrote (`received_at`), not when the job runs, so a retry hours later cannot
