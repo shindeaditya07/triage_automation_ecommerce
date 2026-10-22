@@ -9,6 +9,7 @@
   --danger-bg: #fdecea;
   --warn-bg: #fff3cd;
   --warn-text: #6b4e00;
+  --on-accent: #ffffff; /* text on a filled accent or danger background */
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -23,6 +24,7 @@
     --danger-bg: #3a1f1d;
     --warn-bg: #3d3210;
     --warn-text: #ffd866;
+    --on-accent: #10151c;
   }
 }
 * {
@@ -87,7 +89,7 @@ main {
 }
 .tabs [aria-selected="true"] {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border-color: var(--accent);
 }
 .tickets {
@@ -165,7 +167,7 @@ main {
 }
 .badge.urgency-critical {
   background: var(--danger);
-  color: #fff;
+  color: var(--on-accent);
   border-color: var(--danger);
 }
 .badge.urgency-high {
@@ -401,7 +403,7 @@ textarea:focus-visible {
 }
 .range [aria-pressed="true"] {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border-color: var(--accent);
 }
 .dates {
@@ -603,4 +605,27 @@ textarea:focus-visible {
   padding: 0.5rem;
   border-radius: 6px;
   white-space: pre-wrap;
+}
+.skip-link {
+  position: absolute;
+  left: 0.5rem;
+  top: -4rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 2px solid var(--accent);
+  border-radius: 6px;
+  z-index: 10;
+}
+.skip-link:focus {
+  top: 0.5rem;
+}
+main:focus {
+  outline: none;
+}
+a:focus-visible,
+summary:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

@@ -5,6 +5,7 @@ import { useMetrics } from "../api/metrics";
 import { BarList, CostLine, StackedBars } from "../components/charts";
 import { daysBefore, duration, istToday, percent, rupees } from "../format";
 import { metricsCsv } from "../metricsCsv";
+import { useTitle } from "../hooks/useTitle";
 
 type Preset = "7" | "30" | "custom";
 
@@ -18,6 +19,7 @@ function download(name: string, text: string) {
 }
 
 export function MetricsPage() {
+  useTitle("Metrics");
   const today = useMemo(() => istToday(), []);
   const [preset, setPreset] = useState<Preset>("30");
   const [custom, setCustom] = useState({ start: daysBefore(today, 29), end: today });
@@ -33,7 +35,7 @@ export function MetricsPage() {
         <h1>ReplyDesk</h1>
         <Link to="/">← Back to the queue</Link>
       </header>
-      <main className="wide">
+      <main id="main" tabIndex={-1} className="wide">
         <h2 className="ticket-title">Metrics</h2>
         <div className="range">
           <div role="group" aria-label="Time range" className="tabs">

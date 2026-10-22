@@ -36,6 +36,7 @@ from services.api.policy_source import loaded_passages
 from services.api.review.routes import router as review_router
 from services.api.review.service import ReviewService
 from services.api.review.store import ReviewStore
+from services.api.security_headers import SecurityHeadersMiddleware
 from services.api.settings import AuthSettings, IntakeSettings, JobSettings, StoreProfileSettings
 from services.api.tickets.routes import TicketReader
 from services.api.tickets.routes import router as tickets_router
@@ -178,6 +179,7 @@ def create_app(
 
     app = FastAPI(title="ReplyDesk API", version="0.1.0", lifespan=lifespan)
     app.add_middleware(CsrfMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware)  # outermost: covers every response, errors too
     app.include_router(auth_router)
     app.include_router(intake_router)
     app.include_router(grounding_router)
