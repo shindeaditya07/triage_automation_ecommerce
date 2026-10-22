@@ -6,6 +6,7 @@ import { DraftEditor } from "../components/DraftEditor";
 import { ActivityList, EvidencePanel } from "../components/EvidencePanel";
 import { ApproveDialog, RejectDialog } from "../components/ReviewDialogs";
 import { humanize } from "../format";
+import { useTitle } from "../hooks/useTitle";
 
 type Dialog = "approve" | "reject" | null;
 
@@ -13,13 +14,14 @@ export function TicketPage() {
   const { ticketId = "" } = useParams();
   const ticket = useTicket(ticketId);
   const audit = useAudit(ticketId);
+  useTitle(ticket.data?.subject ?? "Ticket");
   return (
     <div className="app">
       <header className="topbar">
         <h1>ReplyDesk</h1>
         <Link to="/">← Back to the queue</Link>
       </header>
-      <main className="wide">
+      <main id="main" tabIndex={-1} className="wide">
         {ticket.isPending && (
           <p className="status" role="status">
             Loading…

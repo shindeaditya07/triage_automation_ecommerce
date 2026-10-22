@@ -43,3 +43,15 @@ export function renderAt(path: string, routes: ReactElement) {
     </QueryClientProvider>,
   );
 }
+
+/** The accessibility problems axe finds on the page as rendered (colour contrast needs a real
+ * layout engine, so it is checked in the browser instead). Each is "rule: element". */
+export async function a11yProblems(): Promise<string[]> {
+  const axe = (await import("axe-core")).default;
+  const result = await axe.run(document.body, { rules: { "color-contrast": { enabled: false } } });
+  return result.violations.flatMap((v) =>
+    v.nodes.map(
+      (n) => `${v.id}: ${n.html.slice(0, 120)} (${n.failureSummary?.split("\n")[1]?.trim()})`,
+    ),
+  );
+}

@@ -3,6 +3,7 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { useLogin, useMe } from "../api/auth";
 import { ApiError } from "../api/client";
+import { useTitle } from "../hooks/useTitle";
 
 function messageFor(error: unknown): string {
   if (error instanceof ApiError) {
@@ -14,6 +15,7 @@ function messageFor(error: unknown): string {
 }
 
 export function LoginPage() {
+  useTitle("Sign in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const login = useLogin();
@@ -30,7 +32,7 @@ export function LoginPage() {
   }
 
   return (
-    <main className="login">
+    <main id="main" tabIndex={-1} className="login">
       <h1>ReplyDesk</h1>
       <form onSubmit={submit}>
         <label>

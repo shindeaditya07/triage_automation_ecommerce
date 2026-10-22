@@ -4,19 +4,21 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useAudit, useTicket } from "../api/tickets";
 import { describeEvent } from "../auditView";
+import { useTitle } from "../hooks/useTitle";
 
 const PAGE = 15;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function AuditPage() {
   const { ticketId } = useParams();
+  useTitle("Audit log");
   return (
     <div className="app">
       <header className="topbar">
         <h1>ReplyDesk</h1>
         <Link to="/">← Back to the queue</Link>
       </header>
-      <main className="wide">
+      <main id="main" tabIndex={-1} className="wide">
         <h2 className="ticket-title">Audit log</h2>
         <TicketPicker current={ticketId ?? ""} />
         {ticketId && UUID.test(ticketId) ? (
