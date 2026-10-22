@@ -7,7 +7,7 @@ docs/grounding.md.
 """
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Any
@@ -111,6 +111,11 @@ def _fail(rule: str, span: str, detail: str, *, citation_missing: bool = False) 
     )
 
 
+def _cite_hint(paths: Iterable[str]) -> str:
+    """Tells the drafter which field to cite, so a retry can fix a missing citation."""
+    return "; cite " + " or ".join(f"orders.{path}" for path in sorted(paths)[:3])
+
+
 def _policy_values(texts: Sequence[str]) -> tuple[set[int], set[Duration]]:
     amounts: set[int] = set()
     durations: set[Duration] = set()
@@ -146,7 +151,8 @@ def check_order_values(run: _Run) -> list[RuleFailure]:
                     _fail(
                         "G-1",
                         span,
-                        "amount from the order is not cited",
+                        "amount from the order is not cited"
+                        + _cite_hint(index.amount_paths(paise) if index else ()),
                         citation_missing=True,
                     )
                 )
@@ -161,7 +167,12 @@ def check_order_values(run: _Run) -> list[RuleFailure]:
             continue
         elif index.date_paths(day):
             failures.append(
-                _fail("G-1", span, "date from the order is not cited", citation_missing=True)
+                _fail(
+                    "G-1",
+                    span,
+                    "date from the order is not cited" + _cite_hint(index.date_paths(day)),
+                    citation_missing=True,
+                )
             )
         else:
             failures.append(_fail("G-1", span, "date matches no field of the order"))
@@ -181,7 +192,12 @@ def _check_identifiers(run: _Run) -> list[RuleFailure]:
             continue
         if paths:
             failures.append(
-                _fail("G-1", token, "identifier from the order is not cited", citation_missing=True)
+                _fail(
+                    "G-1",
+                    token,
+                    "identifier from the order is not cited" + _cite_hint(paths),
+                    citation_missing=True,
+                )
             )
         elif token in ids and token in run.message_order_ids:
             continue  # the customer's own words, echoed

@@ -106,6 +106,17 @@ def test_g1_tracking_number(ctx: GroundingContext) -> None:
     assert rules(reply("Tracking TRK999999."), [order_cite("order_id")], ctx) == {"G-1"}
 
 
+def test_g1_a_missing_citation_says_which_field_to_cite(ctx: GroundingContext) -> None:
+    """The retry only works if the drafter is told what to add."""
+    number = validate(reply("Your order RD-10001 is delivered."), [], ctx)
+    assert "cite orders.order_id" in number.failures[0].detail
+    amount = validate(reply("The order total was ₹649."), [], ctx)
+    assert "cite orders." in amount.failures[0].detail and "_paise" in amount.failures[0].detail
+    date = validate(reply("It was delivered on 12 October 2026."), [], ctx)
+    assert "cite orders.delivered_at" in date.failures[0].detail
+    assert any("cite orders.order_id" in reason for reason in number.reasons())
+
+
 # --- G-2 ---
 
 
