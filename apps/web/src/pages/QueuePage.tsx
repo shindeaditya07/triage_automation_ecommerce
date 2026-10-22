@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { useLogout, useMe } from "../api/auth";
 import { PAGE_SIZE, useTickets } from "../api/tickets";
@@ -30,6 +30,7 @@ export function QueuePage() {
       <header className="topbar">
         <h1>ReplyDesk</h1>
         <span className="who">
+          <Link to="/metrics">Metrics</Link>
           {me.data?.email}{" "}
           <button type="button" onClick={() => logout.mutate()}>
             Sign out

@@ -28,3 +28,26 @@ def damage_window_open(delivered_at: datetime, at: datetime) -> bool:
     """DMG-3.1: 48 hours from the delivery timestamp, exactly. Forty-eight hours is in time, one
     second more is not."""
     return at - delivered_at <= timedelta(hours=constant("damage_window_hours"))
+
+
+SUPPORT_OPEN_HOUR = 10  # FAQ-10.6: Monday to Saturday, 10:00 to 18:00 IST
+SUPPORT_CLOSE_HOUR = 18
+SUNDAY = 6
+
+
+def business_seconds(start: datetime, end: datetime) -> float:
+    """Seconds between `start` and `end` that fall inside support hours (Monday to Saturday,
+    10:00 to 18:00 IST). Public holidays are not excluded. Zero when `end` is not after `start`."""
+    if end <= start:
+        return 0.0
+    total = 0.0
+    day = ist_date(start)
+    last = ist_date(end)
+    while day <= last:
+        if day.weekday() != SUNDAY:
+            opens = datetime(day.year, day.month, day.day, SUPPORT_OPEN_HOUR, tzinfo=IST)
+            closes = datetime(day.year, day.month, day.day, SUPPORT_CLOSE_HOUR, tzinfo=IST)
+            overlap = (min(end, closes) - max(start, opens)).total_seconds()
+            total += max(overlap, 0.0)
+        day += timedelta(days=1)
+    return total

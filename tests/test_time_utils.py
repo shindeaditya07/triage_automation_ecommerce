@@ -44,3 +44,31 @@ def test_forty_eight_hours_is_in_time_and_one_second_more_is_not() -> None:
 def test_a_report_before_delivery_is_in_time() -> None:
     delivered = datetime(2026, 10, 10, 5, 30, tzinfo=UTC)
     assert damage_window_open(delivered, delivered - timedelta(hours=1))
+
+
+def test_business_seconds_count_only_support_hours() -> None:
+    from services.api.time_utils import business_seconds
+
+    # Thursday 15 October 2026: 09:00 to 11:00 IST is one hour of support time (10:00 to 11:00).
+    assert business_seconds(ist(15, 9), ist(15, 11)) == 3600
+    # Closed overnight: 17:00 Thursday to 11:00 Friday is 1 hour + 1 hour.
+    assert business_seconds(ist(15, 17), ist(16, 11)) == 7200
+    # A whole working day is eight hours.
+    assert business_seconds(ist(15, 0), ist(15, 23, 59, 59)) == 8 * 3600
+
+
+def test_sunday_is_closed_and_saturday_is_open() -> None:
+    from services.api.time_utils import business_seconds
+
+    # 17 October 2026 is a Saturday, 18 October a Sunday.
+    assert business_seconds(ist(17, 10), ist(17, 18)) == 8 * 3600
+    assert business_seconds(ist(18, 0), ist(18, 23, 59, 59)) == 0
+    # Saturday 17:00 to Monday 11:00 IST: one hour Saturday, one hour Monday.
+    assert business_seconds(ist(17, 17), ist(19, 11)) == 7200
+
+
+def test_business_seconds_is_zero_when_the_end_is_not_after_the_start() -> None:
+    from services.api.time_utils import business_seconds
+
+    assert business_seconds(ist(15, 12), ist(15, 12)) == 0
+    assert business_seconds(ist(15, 13), ist(15, 12)) == 0
