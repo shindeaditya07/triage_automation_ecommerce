@@ -11,10 +11,15 @@ export type Routing = (method: string, path: string, search: URLSearchParams) =>
 
 /** Replace `fetch` with a function that answers from `routing`, and record what was asked. */
 export function stubApi(routing: Routing) {
-  const seen: { method: string; path: string; search: URLSearchParams }[] = [];
+  const seen: { method: string; path: string; search: URLSearchParams; body: string }[] = [];
   vi.stubGlobal("fetch", async (input: Request) => {
     const url = new URL(input.url);
-    seen.push({ method: input.method, path: url.pathname, search: url.searchParams });
+    seen.push({
+      method: input.method,
+      path: url.pathname,
+      search: url.searchParams,
+      body: await input.clone().text(),
+    });
     const reply = routing(input.method, url.pathname, url.searchParams) ?? { status: 404 };
     return new Response(reply.body === undefined ? null : JSON.stringify(reply.body), {
       status: reply.status ?? 200,

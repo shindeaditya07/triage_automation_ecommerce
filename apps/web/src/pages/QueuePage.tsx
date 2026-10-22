@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { useLogout, useMe } from "../api/auth";
 import { PAGE_SIZE, useTickets } from "../api/tickets";
@@ -16,7 +17,11 @@ export function QueuePage() {
   const logout = useLogout();
   const waking = useWakingUp(tickets.isPending);
   const items = tickets.data?.items ?? [];
-  const selected = useListKeys(items.length);
+  const navigate = useNavigate();
+  const selected = useListKeys(items.length, (index) => {
+    const ticket = items[index];
+    if (ticket) navigate(`/tickets/${ticket.ticket_id}`);
+  });
   const total = tickets.data?.total ?? 0;
   const now = Date.now();
 
@@ -103,7 +108,7 @@ export function QueuePage() {
             </button>
           </nav>
         )}
-        <p className="hint">Keys: J and K move down and up the list.</p>
+        <p className="hint">Keys: J and K move down and up the list, Enter opens a ticket.</p>
       </main>
     </div>
   );
