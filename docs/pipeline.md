@@ -16,7 +16,9 @@ changes nothing the second time.
   the model. A second invalid answer escalates the ticket.
 - **Any other model failure** (provider down, circuit open, rejected request) escalates at once:
   `status = escalated`, `escalation_reason = llm_error:<ClassName>`, audit event
-  `ticket.escalated`. The owner sees the original message; no draft is made.
+  `ticket.escalated`, whose `error` field holds the failure's own message (for a rejected
+  request, the HTTP status and Google's short error category). The same text goes in the log.
+  The owner sees the original message; no draft is made.
 - The model may not set `high_value`: that flag comes from the order's value after the order is
   read. If the model returns it, it is removed and listed in the audit event as `dropped_flags`.
 - Whether a *valid* classification still needs the owner is decided by step 2.

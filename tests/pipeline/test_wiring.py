@@ -73,3 +73,13 @@ async def test_invalid_settings_disable_the_pipeline_without_leaking_values(
         assert build_pipeline(engine, now) is None
     assert "pipeline disabled" in caplog.text
     assert "secret-key-value" not in caplog.text
+
+
+async def test_the_log_names_the_missing_setting(
+    engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    for name, value in {"LLM_PROVIDER": "gemini", "LLM_API_KEY": "k", "LLM_MODEL": "m"}.items():
+        monkeypatch.setenv(name, value)  # no judge model: the common mistake
+    with caplog.at_level(logging.ERROR, logger="replydesk.pipeline"):
+        assert build_pipeline(engine, now) is None
+    assert "JUDGE_MODEL are required" in caplog.text

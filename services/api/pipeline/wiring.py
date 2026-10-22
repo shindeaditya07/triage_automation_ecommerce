@@ -55,7 +55,9 @@ def build_pipeline(
         store_settings = store_settings or StoreSettings()
         profile = profile or StoreProfileSettings()
     except ValidationError as exc:
-        log.error("pipeline disabled: invalid settings %s", [e["loc"] for e in exc.errors()])
+        # Names and the rule that failed, never the value (`input` is left out).
+        problems = [(".".join(map(str, e["loc"])) or "settings", e["msg"]) for e in exc.errors()]
+        log.error("pipeline disabled: invalid settings %s", problems)
         return None
     if llm_settings.llm_provider == "fake":
         log.warning("pipeline disabled: LLM_PROVIDER is not set, so tickets will not be drafted")

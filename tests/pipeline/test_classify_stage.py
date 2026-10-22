@@ -112,3 +112,8 @@ async def test_other_model_failures_escalate_without_a_second_try(
     stage = await classify_ticket(client, "t1", None, "Body")
     assert (stage.classification, stage.escalation_reason) == (None, reason)
     assert len(client.requests) == 1
+
+
+async def test_a_provider_failure_keeps_its_own_message_for_the_owner() -> None:
+    stage = await classify_ticket(Scripted([LLMRequestError(404, "NOT_FOUND")]), "t1", None, "Body")
+    assert stage.error == "the provider rejected the request: HTTP 404 (NOT_FOUND)"

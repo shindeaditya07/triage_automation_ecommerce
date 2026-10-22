@@ -8,7 +8,7 @@ from uuid import UUID
 from sqlalchemy import ColumnElement, case, func, select, true
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from services.api.db.tables import drafts, order_snapshots, tickets
+from services.api.db.tables import audit_log, drafts, order_snapshots, tickets
 from services.api.models.draft import Citation
 from services.api.models.enums import (
     DraftKind,
@@ -19,6 +19,7 @@ from services.api.models.enums import (
     Urgency,
 )
 from services.api.tickets.models import (
+    AuditEvent,
     CitedPolicy,
     DraftView,
     TicketDetail,
@@ -155,6 +156,36 @@ class TicketReadStore:
             draft=draft,
             needs_original_viewed=needs_original_viewed(t.status, t.flags, t.escalation_reason),
         )
+
+    async def get_audit(self, ticket_id: UUID) -> list[AuditEvent] | None:
+        """The ticket's audit events, oldest first; None when there is no such ticket."""
+        async with self._engine.connect() as conn:
+            exists = (
+                await conn.execute(
+                    select(tickets.c.ticket_id).where(
+                        tickets.c.ticket_id == ticket_id, tickets.c.deleted_at.is_(None)
+                    )
+                )
+            ).first()
+            if exists is None:
+                return None
+            rows = (
+                await conn.execute(
+                    select(audit_log)
+                    .where(audit_log.c.ticket_id == ticket_id)
+                    .order_by(audit_log.c.occurred_at, audit_log.c.event_id)
+                )
+            ).all()
+        return [
+            AuditEvent(
+                event_id=r.event_id,
+                event_type=r.event_type,
+                actor=r.actor,
+                occurred_at=r.occurred_at,
+                payload=dict(r.payload),
+            )
+            for r in rows
+        ]
 
     def _draft_view(self, d: Any) -> DraftView:
         citations = [Citation.model_validate(c) for c in d.citations]

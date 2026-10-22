@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from services.api.auth.store import InMemoryAuthStore
 from services.api.main import create_app
 from services.api.models.enums import Channel, TicketStatus
-from services.api.tickets.models import TicketDetail, TicketPage, TicketSummary
+from services.api.tickets.models import AuditEvent, TicketDetail, TicketPage, TicketSummary
 from services.api.tickets.store import TicketFilter
 from tests.auth.conftest import login
 
@@ -60,6 +60,19 @@ class Reader:
             needs_original_viewed=False,
         )
 
+    async def get_audit(self, ticket_id: UUID) -> list[AuditEvent] | None:
+        if ticket_id != TICKET:
+            return None
+        return [
+            AuditEvent(
+                event_id=1,
+                event_type="ticket.escalated",
+                actor="system",
+                occurred_at=datetime(2026, 10, 15, tzinfo=UTC),
+                payload={"reason": "llm_error:LLMRequestError", "error": "HTTP 404"},
+            )
+        ]
+
 
 @pytest.fixture
 def reader() -> Reader:
@@ -78,6 +91,7 @@ def client(make_settings, clock, store: InMemoryAuthStore, reader: Reader):  # t
 def test_both_routes_need_a_signed_in_owner(client: TestClient) -> None:
     assert client.get("/api/v1/tickets").status_code in (401, 403)
     assert client.get(f"/api/v1/tickets/{TICKET}").status_code in (401, 403)
+    assert client.get(f"/api/v1/tickets/{TICKET}/audit").status_code in (401, 403)
 
 
 def test_the_queue_passes_its_filters_through(client: TestClient, reader: Reader) -> None:
@@ -106,9 +120,19 @@ def test_one_ticket_and_a_missing_one(client: TestClient) -> None:
     assert client.get("/api/v1/tickets/not-a-uuid").status_code == 422
 
 
+def test_the_audit_trail_and_a_missing_ticket(client: TestClient) -> None:
+    login(client)
+    [event] = client.get(f"/api/v1/tickets/{TICKET}/audit").json()
+    assert event["event_type"] == "ticket.escalated"
+    assert event["payload"]["error"] == "HTTP 404"
+    assert client.get(f"/api/v1/tickets/{uuid4()}/audit").status_code == 404
+    assert client.get("/api/v1/tickets/not-a-uuid/audit").status_code == 422
+
+
 def test_without_a_database_it_is_503(make_settings, clock, store, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.delenv("DATABASE_URL", raising=False)
     app = create_app(auth_settings=make_settings(), auth_store=store, clock=clock)
     with TestClient(app) as test_client:
         login(test_client)
         assert test_client.get("/api/v1/tickets").status_code == 503
+        assert test_client.get(f"/api/v1/tickets/{TICKET}/audit").status_code == 503

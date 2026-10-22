@@ -1,4 +1,5 @@
-"""`GET /api/v1/tickets` (the queue) and `GET /api/v1/tickets/{ticket_id}` (one ticket).
+"""`GET /api/v1/tickets` (the queue), `GET /api/v1/tickets/{ticket_id}` (one ticket) and
+`GET /api/v1/tickets/{ticket_id}/audit` (what happened to it, oldest first).
 
 Owner-only. The queue is sorted most urgent first, oldest first within an urgency. Reads only:
 approving, editing and rejecting are separate routes.
@@ -12,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from services.api.auth.routes import require_owner
 from services.api.auth.service import Owner
 from services.api.models.enums import Intent, TicketStatus
-from services.api.tickets.models import TicketDetail, TicketPage
+from services.api.tickets.models import AuditEvent, TicketDetail, TicketPage
 from services.api.tickets.store import TicketFilter
 
 router = APIRouter(prefix="/api/v1/tickets", tags=["tickets"])
@@ -25,6 +26,8 @@ class TicketReader(Protocol):
     async def list_tickets(self, flt: TicketFilter, limit: int, offset: int) -> TicketPage: ...
 
     async def get_ticket(self, ticket_id: UUID) -> TicketDetail | None: ...
+
+    async def get_audit(self, ticket_id: UUID) -> list[AuditEvent] | None: ...
 
 
 def get_reader(request: Request) -> TicketReader:
@@ -56,3 +59,15 @@ async def get_ticket(
     if detail is None:
         raise HTTPException(404, "no such ticket")
     return detail
+
+
+@router.get("/{ticket_id}/audit", response_model=list[AuditEvent])
+async def get_ticket_audit(
+    ticket_id: UUID,
+    owner: Annotated[Owner, Depends(require_owner)],
+    reader: Annotated[TicketReader, Depends(get_reader)],
+) -> list[AuditEvent]:
+    events = await reader.get_audit(ticket_id)
+    if events is None:
+        raise HTTPException(404, "no such ticket")
+    return events

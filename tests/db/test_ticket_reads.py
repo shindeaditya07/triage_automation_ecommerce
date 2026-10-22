@@ -119,3 +119,35 @@ async def test_an_escalated_ticket_must_have_its_original_viewed(engine: AsyncEn
     )
     detail = await reader(engine).get_ticket(ticket_id)
     assert detail is not None and detail.needs_original_viewed
+
+
+async def test_the_audit_trail_is_oldest_first_and_keeps_the_error(engine: AsyncEngine) -> None:
+    ticket_id = await drafted(engine, 1)
+    await PipelineStore(engine).escalate(
+        ticket_id,
+        "draft",
+        "llm_error:LLMServerError",
+        [],
+        datetime.now(UTC),
+        from_status=TicketStatus.DRAFTED,
+        detail={"error": "the model provider failed (HTTP 503)"},
+    )
+    events = await reader(engine).get_audit(ticket_id)
+    assert events is not None
+    types = [e.event_type for e in events]
+    assert types[0] == "ticket.classified" and types[-1] == "ticket.escalated"
+    assert "ticket.drafted" in types
+    assert [e.event_id for e in events] == sorted(e.event_id for e in events)
+    assert events[-1].payload["error"] == "the model provider failed (HTTP 503)"
+
+
+async def test_the_audit_trail_of_an_unknown_or_deleted_ticket_is_none(
+    engine: AsyncEngine,
+) -> None:
+    assert await reader(engine).get_audit(uuid4()) is None
+    ticket_id = await drafted(engine, 1)
+    async with engine.begin() as conn:
+        await conn.execute(
+            text("UPDATE tickets SET deleted_at = now() WHERE ticket_id = :t"), {"t": ticket_id}
+        )
+    assert await reader(engine).get_audit(ticket_id) is None
