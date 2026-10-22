@@ -60,6 +60,12 @@ function app(routing: Routing, path = "/") {
 }
 
 describe("the queue", () => {
+  it("links each ticket to its screen", async () => {
+    app(() => page([ticket("a")]));
+    const link = await screen.findByRole("link", { name: "Subject a" });
+    expect(link.getAttribute("href")).toBe("/tickets/a");
+  });
+
   it("lists tickets with their badges and the signed-in owner", async () => {
     app(() =>
       page([

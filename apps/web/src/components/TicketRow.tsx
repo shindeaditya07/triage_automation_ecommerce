@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 import type { TicketSummary } from "../api/tickets";
 import { ageLabel, humanize } from "../format";
 
@@ -15,7 +17,9 @@ export function TicketRow({ ticket, selected, now }: Props) {
   return (
     <li className={classes.join(" ")} aria-current={selected ? "true" : undefined}>
       <div className="ticket-main">
-        <span className="ticket-subject">{ticket.subject || "(no subject)"}</span>
+        <Link className="ticket-subject" to={`/tickets/${ticket.ticket_id}`}>
+          {ticket.subject || "(no subject)"}
+        </Link>
         <span className="ticket-from">
           {ticket.customer_name ? `${ticket.customer_name} · ` : ""}
           {ticket.customer_email}
