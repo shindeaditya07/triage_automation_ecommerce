@@ -96,9 +96,9 @@ when (`grounding/edit.py`). `check_override` rejects an override with no reason,
 did not fire, and one that leaves a firing rule uncovered. `PipelineStore.record_edit_override`
 appends it to the audit log as `draft.edit_override` (reason and rules, not the text).
 
-Not built yet, because there is no approval or save route: calling `check_override` and
-`record_edit_override` when the owner saves, and the edit diff stored on approval. Both belong to
-the approval branch.
+The save and approve routes (docs/ticket-api.md) call `check_override` and
+`record_edit_override`'s equivalent in one transaction with the edit, and store the edit diff on
+approval.
 
 ## What these rules do not catch
 

@@ -33,6 +33,16 @@ _URGENCY_RANK = case(
 )
 
 
+def needs_original_viewed(status: str, flags: Sequence[str], escalation_reason: str | None) -> bool:
+    """Escalated, suspected-injection and suggestion-only tickets are not approved until the owner
+    has viewed the customer's original message."""
+    return (
+        status == TicketStatus.ESCALATED.value
+        or Flag.PROMPT_INJECTION_SUSPECTED.value in flags
+        or escalation_reason is not None
+    )
+
+
 @dataclass(frozen=True)
 class TicketFilter:
     statuses: Sequence[TicketStatus] = ()
@@ -122,7 +132,6 @@ class TicketReadStore:
                 )
             ).first()
         draft = self._draft_view(d) if d is not None else None
-        escalated = t.status == TicketStatus.ESCALATED.value
         return TicketDetail(
             ticket_id=t.ticket_id,
             thread_id=t.thread_id,
@@ -144,9 +153,7 @@ class TicketReadStore:
             failure_reason=t.failure_reason,
             order=d.order_data if d is not None else None,
             draft=draft,
-            needs_original_viewed=escalated
-            or Flag.PROMPT_INJECTION_SUSPECTED.value in t.flags
-            or t.escalation_reason is not None,
+            needs_original_viewed=needs_original_viewed(t.status, t.flags, t.escalation_reason),
         )
 
     def _draft_view(self, d: Any) -> DraftView:
