@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, case, func, select, true
+from sqlalchemy import ColumnElement, func, select, true
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from services.api.db.tables import audit_log, drafts, order_snapshots, tickets
@@ -16,7 +16,6 @@ from services.api.models.enums import (
     Intent,
     SourceType,
     TicketStatus,
-    Urgency,
 )
 from services.api.tickets.models import (
     AuditEvent,
@@ -25,12 +24,6 @@ from services.api.tickets.models import (
     TicketDetail,
     TicketPage,
     TicketSummary,
-)
-
-# Most urgent first; a ticket that was never classified sorts after every classified one.
-_URGENCY_RANK = case(
-    *((tickets.c.urgency == u.value, rank) for rank, u in enumerate(reversed(list(Urgency)))),
-    else_=len(Urgency),
 )
 
 
@@ -78,7 +71,7 @@ class TicketReadStore:
             )
             .select_from(tickets.outerjoin(latest, true()))
             .where(*where)
-            .order_by(_URGENCY_RANK, tickets.c.received_at, tickets.c.ticket_id)
+            .order_by(tickets.c.received_at.desc(), tickets.c.ticket_id.desc())
             .limit(limit)
             .offset(offset)
         )

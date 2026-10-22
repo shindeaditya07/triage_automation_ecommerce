@@ -42,18 +42,15 @@ async def everything(store: TicketReadStore, flt: TicketFilter | None = None):  
     return page.items
 
 
-async def test_the_queue_is_most_urgent_first_then_oldest(engine: AsyncEngine) -> None:
+async def test_the_queue_is_newest_first_whatever_the_urgency(engine: AsyncEngine) -> None:
     low, critical, normal = [await drafted(engine, n) for n in (1, 2, 3)]
     for ticket_id, urgency in ((low, "low"), (critical, "critical"), (normal, "normal")):
         await set_urgency(engine, ticket_id, urgency)
     items = await everything(reader(engine))
     mine = [i for i in items if i.ticket_id in {low, critical, normal}]
-    assert [i.ticket_id for i in mine] == [critical, normal, low]
     assert all(i.has_draft and not i.used_fallback_template for i in mine)
-    ranks = [
-        {"critical": 0, "high": 1, "normal": 2, "low": 3}.get(i.urgency or "", 4) for i in items
-    ]
-    assert ranks == sorted(ranks)
+    received = [i.received_at for i in items]
+    assert received == sorted(received, reverse=True)
 
 
 async def test_filters_and_paging(engine: AsyncEngine) -> None:
