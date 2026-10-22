@@ -142,6 +142,8 @@ async def test_the_handler_escalates_when_the_model_fails(engine: AsyncEngine) -
     await handler(engine, client)(job_for(ticket_id))
     ticket = await row(engine, ticket_id)
     assert (ticket.status, ticket.escalation_reason) == ("escalated", "llm_error:LLMRequestError")
+    escalated = {e.event_type: e.payload for e in await events(engine, ticket_id)}
+    assert escalated["ticket.escalated"]["error"] == "the provider rejected the request: HTTP 401"
 
 
 async def test_the_handler_gives_up_on_a_missing_ticket(engine: AsyncEngine) -> None:

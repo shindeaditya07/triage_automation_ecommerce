@@ -46,9 +46,14 @@ def make_process_ticket_handler(
             if stage.classification is None:
                 reason = stage.escalation_reason or "classification_failed"
                 await store.escalate(
-                    ticket.ticket_id, "classification", reason, stage.calls, clock()
+                    ticket.ticket_id,
+                    "classification",
+                    reason,
+                    stage.calls,
+                    clock(),
+                    detail={"error": stage.error} if stage.error else None,
                 )
-                log.info("ticket escalated at classification: %s", reason)
+                log.info("ticket escalated at classification: %s %s", reason, stage.error or "")
                 return
             await store.save_classification(
                 ticket.ticket_id, stage.classification, stage.calls, stage.dropped_flags, clock()
@@ -143,8 +148,9 @@ def make_process_ticket_handler(
                     written.calls,
                     clock(),
                     from_status=TicketStatus.CLASSIFIED,
+                    detail={"error": written.error} if written.error else None,
                 )
-                log.info("ticket escalated at drafting: %s", reason)
+                log.info("ticket escalated at drafting: %s %s", reason, written.error or "")
                 return
             await store.save_draft(
                 ticket.ticket_id,

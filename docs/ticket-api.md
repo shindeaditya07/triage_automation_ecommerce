@@ -17,6 +17,13 @@ database they answer 503.
   `needs_original_viewed` is true for escalated, suspected-injection and suggestion-only tickets:
   the screen must make the owner view the original message before it enables Approve.
 
+- `GET /api/v1/tickets/{ticket_id}/audit` is what happened to the ticket, oldest first: each
+  event's type, actor, time and payload (`ticket.classified`, `ticket.escalated`,
+  `draft.attempt_failed`, `ticket.drafted`, and the review events). Payloads hold reasons, rule
+  IDs, call records and, for a provider failure, its own message (for example
+  `the provider rejected the request: HTTP 404 (NOT_FOUND)`); they never hold rejected draft text
+  or the provider's reply. 404 for an unknown or deleted ticket.
+
 Nothing here changes a ticket.
 
 ## Acting on a draft

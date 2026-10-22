@@ -160,6 +160,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tickets/{ticket_id}/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Ticket Audit */
+        get: operations["get_ticket_audit_api_v1_tickets__ticket_id__audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tickets/{ticket_id}/draft": {
         parameters: {
             query?: never;
@@ -287,6 +304,24 @@ export interface components {
              * @default false
              */
             original_viewed: boolean;
+        };
+        /** AuditEvent */
+        AuditEvent: {
+            /** Actor */
+            actor: string;
+            /** Event Id */
+            event_id: number;
+            /** Event Type */
+            event_type: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Payload */
+            payload: {
+                [key: string]: unknown;
+            };
         };
         /**
          * Channel
@@ -865,6 +900,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReviewOutcome"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_ticket_audit_api_v1_tickets__ticket_id__audit_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditEvent"][];
                 };
             };
             /** @description Validation Error */

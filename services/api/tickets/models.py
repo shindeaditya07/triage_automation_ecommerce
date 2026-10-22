@@ -93,3 +93,11 @@ class TicketDetail(StrictModel):
         description="Escalated or suspected-injection: the owner must view the original message "
         "before approving."
     )
+
+
+class AuditEvent(StrictModel):
+    event_id: int
+    event_type: str
+    actor: str
+    occurred_at: UtcDatetime
+    payload: dict[str, Any]  # what the step recorded: reasons and call records, not rejected text

@@ -70,6 +70,7 @@ class DraftStage:
     passage_ids: list[str] = field(default_factory=list)
     calls: list[CallRecord] = field(default_factory=list)
     escalation_reason: str | None = None
+    error: str | None = None  # the provider failure's own message (status, never request text)
     grounding: GroundingResult | None = None
     kind: DraftKind = DraftKind.LLM
     attempt: int = 1  # 1 or 2 for a model draft; 3 for the fallback after two failures
@@ -106,7 +107,7 @@ async def draft_ticket(
             extra_ids=extra,
         )
     except LLMError as exc:
-        return DraftStage(escalation_reason=exc.escalation_reason)
+        return DraftStage(escalation_reason=exc.escalation_reason, error=str(exc))
     except RetrievalError:
         return DraftStage(escalation_reason=RETRIEVAL_FAILED_REASON)
 
@@ -145,7 +146,7 @@ async def draft_ticket(
                 return DraftStage(escalation_reason=INVALID_OUTPUT_REASON, calls=calls)
             break  # an earlier draft failed grounding: the fallback is safer than nothing
         except LLMError as exc:
-            return DraftStage(escalation_reason=exc.escalation_reason, calls=calls)
+            return DraftStage(escalation_reason=exc.escalation_reason, error=str(exc), calls=calls)
         calls.append(result.record)
         # What the draft was made from is recorded from this step's own inputs, not from what
         # the client reports back.

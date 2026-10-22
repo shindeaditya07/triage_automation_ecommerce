@@ -26,6 +26,7 @@ class ClassificationStage:
 
     classification: Classification | None = None
     escalation_reason: str | None = None
+    error: str | None = None  # the provider failure's own message (status, never request text)
     calls: list[CallRecord] = field(default_factory=list)
     dropped_flags: list[str] = field(default_factory=list)
 
@@ -55,7 +56,7 @@ async def classify_ticket(
             previous_error = exc.detail
             continue
         except LLMError as exc:
-            return ClassificationStage(escalation_reason=exc.escalation_reason)
+            return ClassificationStage(escalation_reason=exc.escalation_reason, error=str(exc))
         classification, dropped = _clean(result.value)
         return ClassificationStage(
             classification=classification, calls=[result.record], dropped_flags=dropped
