@@ -31,6 +31,7 @@ export function QueuePage() {
         <h1>ReplyDesk</h1>
         <span className="who">
           <Link to="/metrics">Metrics</Link>
+          <Link to="/audit">Audit log</Link>
           {me.data?.email}{" "}
           <button type="button" onClick={() => logout.mutate()}>
             Sign out
