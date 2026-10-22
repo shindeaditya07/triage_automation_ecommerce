@@ -31,6 +31,9 @@ from services.api.pipeline.store import PipelineStore
 from services.api.pipeline.wiring import PipelineRuntime, build_pipeline
 from services.api.policy_source import loaded_passages
 from services.api.settings import AuthSettings, IntakeSettings, JobSettings, StoreProfileSettings
+from services.api.tickets.routes import TicketReader
+from services.api.tickets.routes import router as tickets_router
+from services.api.tickets.store import TicketReadStore
 
 log = logging.getLogger("replydesk.api")
 
@@ -109,6 +112,7 @@ def create_app(
     intake_settings: IntakeSettings | None = None,
     intake_service: IntakeService | None = None,
     edit_context_source: EditContextSource | None = None,
+    ticket_reader: TicketReader | None = None,
 ) -> FastAPI:
     """Build the app. Tests pass an engine, auth settings, a store and a clock; otherwise the
     database and auth settings come from the environment.
@@ -129,6 +133,9 @@ def create_app(
         app.state.auth = _build_auth(auth_settings, database, auth_store, clock)
         app.state.intake = _build_intake(intake_settings, database, intake_service, clock)
         app.state.edit_validation = _build_edit_validation(database, edit_context_source)
+        app.state.ticket_reader = ticket_reader or (
+            TicketReadStore(database.engine, loaded_passages()) if database.engine else None
+        )
         pipeline: PipelineRuntime | None = None
         handlers = job_handlers
         if handlers is None:
@@ -152,6 +159,7 @@ def create_app(
     app.include_router(auth_router)
     app.include_router(intake_router)
     app.include_router(grounding_router)
+    app.include_router(tickets_router)
 
     @app.exception_handler(SQLAlchemyError)
     @app.exception_handler(OSError)
