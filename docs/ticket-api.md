@@ -7,8 +7,8 @@ database they answer 503.
 
 - `GET /api/v1/tickets?status=&intent=&limit=&offset=` is the queue. `status` may repeat
   (`?status=new&status=classified` for an "In progress" tab). `limit` is 1 to 100 (default 50).
-  Most urgent first (critical, high, normal, low, then tickets never classified), oldest first
-  within an urgency. Each item says whether it has a draft, is suggestion-only, or holds the
+  Newest first by `received_at`, whatever the urgency (the owner's call, replacing the spec's
+  urgency order; the urgency badge on each row still shows what is critical). Each item says whether it has a draft, is suggestion-only, or holds the
   fallback template, so the queue can show the owner-visible notice. Soft-deleted tickets never
   appear.
 - `GET /api/v1/tickets/{ticket_id}` is the whole ticket: the customer's original message, the
