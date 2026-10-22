@@ -3,7 +3,7 @@ COMPOSE ?= docker compose
 UV ?= uv
 
 .PHONY: help install up down migrate seed owner-hash lint test eval eval-smoke resilience build \
-	deploy-staging deploy-prod audit policy-check index-policies
+	deploy-staging deploy-prod audit policy-check index-policies generate-types check-types
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
@@ -29,6 +29,14 @@ owner-hash: ## Prompt for the owner password and print its argon2 hash (for OWNE
 
 index-policies: ## Embed docs/policies.md into the policy index (needs DATABASE_URL and embedding keys)
 	$(UV) run python -m scripts.index_policies
+
+generate-types: ## Regenerate the frontend's API types from the FastAPI OpenAPI schema
+	$(UV) run python -m scripts.dump_openapi apps/web/openapi.json
+	cd apps/web && npx openapi-typescript openapi.json -o src/api/schema.d.ts
+	rm apps/web/openapi.json
+
+check-types: generate-types ## Fail if the committed API types are out of date
+	git diff --exit-code -- apps/web/src/api/schema.d.ts
 
 seed: ## Build the 31 mock-store edge cases, check them against the contract, write seed.json
 	$(UV) run python -m services.mock-store.seed

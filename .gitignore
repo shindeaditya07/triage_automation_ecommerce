@@ -37,3 +37,6 @@ services/mock-store/seed/seed.json
 
 # Smoke eval runs are not committed; release eval reports are (git add -f)
 evals/results/*-smoke-*/
+
+# Written and removed by `make generate-types`
+apps/web/openapi.json

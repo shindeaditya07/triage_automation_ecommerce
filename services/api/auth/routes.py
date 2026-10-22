@@ -24,6 +24,21 @@ class LoginRequest(StrictModel):
     password: str = Field(min_length=1, max_length=MAX_PASSWORD_LENGTH)
 
 
+class SessionBody(StrictModel):
+    """What login and refresh answer with, for the OpenAPI schema (cookies carry the session)."""
+
+    csrf_token: str
+    access_expires_in: int
+
+
+class MeBody(StrictModel):
+    email: str
+
+
+class ErrorBody(StrictModel):
+    detail: str
+
+
 def get_auth(request: Request) -> AuthService:
     service: AuthService | None = getattr(request.app.state, "auth", None)
     if service is None:
@@ -96,7 +111,10 @@ def _error(exc: AuthError) -> JSONResponse:
     return JSONResponse({"detail": exc.detail}, status_code=exc.status_code, headers=headers)
 
 
-@router.post("/login")
+@router.post(
+    "/login",
+    responses={200: {"model": SessionBody}, 401: {"model": ErrorBody}, 429: {"model": ErrorBody}},
+)
 async def login(
     body: LoginRequest, request: Request, service: Annotated[AuthService, Depends(get_auth)]
 ) -> Response:
@@ -111,7 +129,7 @@ async def login(
     return response
 
 
-@router.post("/refresh")
+@router.post("/refresh", responses={200: {"model": SessionBody}, 401: {"model": ErrorBody}})
 async def refresh(request: Request, service: Annotated[AuthService, Depends(get_auth)]) -> Response:
     try:
         session = await service.refresh(request.cookies.get(REFRESH_COOKIE))
@@ -140,6 +158,6 @@ async def logout(request: Request, service: Annotated[AuthService, Depends(get_a
     return response
 
 
-@router.get("/me")
+@router.get("/me", responses={200: {"model": MeBody}, 401: {"model": ErrorBody}})
 async def me(owner: Annotated[Owner, Depends(require_owner)]) -> JSONResponse:
     return JSONResponse({"email": owner.email}, headers=NO_STORE)
