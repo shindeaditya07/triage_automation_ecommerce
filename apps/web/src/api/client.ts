@@ -47,6 +47,7 @@ export function createApiClient(options: ApiClientOptions = {}) {
   const baseFetch = options.fetch ?? ((request: Request) => globalThis.fetch(request));
   const cookies =
     options.cookies ?? (() => (typeof document === "undefined" ? "" : document.cookie));
+  const baseUrl = options.baseUrl ?? (typeof location === "undefined" ? "" : location.origin);
   let refreshing: Promise<boolean> | null = null;
 
   function withCsrf(request: Request): Request {
@@ -61,7 +62,7 @@ export function createApiClient(options: ApiClientOptions = {}) {
   function refreshOnce(): Promise<boolean> {
     refreshing ??= (async () => {
       try {
-        const request = new Request(`${options.baseUrl ?? ""}${REFRESH_PATH}`, {
+        const request = new Request(`${baseUrl}${REFRESH_PATH}`, {
           method: "POST",
           credentials: "same-origin",
         });
@@ -89,7 +90,7 @@ export function createApiClient(options: ApiClientOptions = {}) {
   }
 
   return createClient<paths>({
-    baseUrl: options.baseUrl ?? "",
+    baseUrl,
     credentials: "same-origin",
     fetch: apiFetch,
   });
