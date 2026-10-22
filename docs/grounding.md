@@ -61,6 +61,10 @@ With the all-Gemini setup the drafter and the judge are the same model family
 | G-9 | More than one apology | `apology_patterns` |
 | G-10 | Longer than `max_reply_chars` | Length |
 
+A G-1 failure for a value that is in the order but not cited says which field to cite (for
+example `identifier from the order is not cited; cite orders.order_id`). The drafting step puts
+that reason in front of the model on its retry, so the second draft can add the citation.
+
 Which side judges a value: dates and identifiers are order-derived (G-1); durations are always
 policy-derived (G-2); an amount is judged by G-2 when its sentence names a policy ID or the word
 "policy", or when it appears in a policy passage but not in the order, and by G-1 otherwise.
