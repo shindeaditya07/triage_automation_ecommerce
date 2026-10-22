@@ -38,4 +38,13 @@ Nothing here changes a ticket.
   (`ticket.rejected`).
 
 A draft is decided once: only a `pending` draft on a `drafted` ticket accepts any of these (409
-otherwise). Approving does not send anything: there is no send step yet.
+otherwise).
+
+## Mock send (spec FR-13)
+
+Approving also records the send in a second transaction: the draft gets `sent_at`, the ticket
+becomes `sent`, and the audit log gets `ticket.mock_sent` with the draft, the approver and the
+length of the final text (the text itself is on the draft as `final_text`). **No message leaves the
+system.** If recording the send fails, the ticket stays `approved` (the approval is never lost) and
+`POST /api/v1/tickets/{id}/send` finishes it; calling it again, or on a ticket already sent, changes
+nothing.

@@ -206,6 +206,53 @@ class ReviewStore:
             )
         return text
 
+    async def mock_send(self, ticket_id: UUID, now: datetime) -> bool:
+        """Record that the approved reply was "sent" (spec FR-13): no message leaves the system.
+        Returns False when there is nothing to do: not approved, or already sent, so a retry is
+        harmless."""
+        async with self._engine.begin() as conn:
+            ticket = (
+                await conn.execute(
+                    select(tickets.c.status)
+                    .where(tickets.c.ticket_id == ticket_id, tickets.c.deleted_at.is_(None))
+                    .with_for_update()
+                )
+            ).first()
+            if ticket is None or ticket.status != TicketStatus.APPROVED.value:
+                return False
+            draft = (
+                await conn.execute(
+                    update(drafts)
+                    .where(
+                        drafts.c.ticket_id == ticket_id,
+                        drafts.c.review_status == ReviewStatus.APPROVED.value,
+                        drafts.c.sent_at.is_(None),
+                    )
+                    .values(sent_at=now)
+                    .returning(drafts.c.draft_id, drafts.c.reviewed_by, drafts.c.final_text)
+                )
+            ).first()
+            if draft is None:
+                return False
+            await conn.execute(
+                update(tickets)
+                .where(tickets.c.ticket_id == ticket_id)
+                .values(status=TicketStatus.SENT.value, updated_at=now)
+            )
+            await self._event(
+                conn,
+                ticket_id,
+                "ticket.mock_sent",
+                "system",
+                now,
+                {
+                    "draft_id": str(draft.draft_id),
+                    "approved_by": draft.reviewed_by,
+                    "final_text_chars": len(draft.final_text),
+                },
+            )
+        return True
+
     async def reject(
         self, ticket_id: UUID, state: ReviewState, reason: str, actor: str, now: datetime
     ) -> None:

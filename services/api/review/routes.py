@@ -1,5 +1,5 @@
 """Save an edit, approve or reject a ticket's draft. Owner-only; see review/service.py for the
-rules. Approving records the decision and nothing more: no reply is sent."""
+rules. Approving records the decision and the mock send (spec FR-13); no reply leaves the system."""
 
 from typing import Annotated
 from uuid import UUID
@@ -65,6 +65,17 @@ async def reject(
 ) -> ReviewOutcome:
     try:
         return await service.reject(ticket_id, body, owner)
+    except NoDraft:
+        raise HTTPException(404, "no draft for this ticket") from None
+    except Conflict as exc:
+        raise HTTPException(409, str(exc)) from None
+
+
+@router.post("/{ticket_id}/send", response_model=ReviewOutcome)
+async def send(ticket_id: UUID, owner: Who, service: Service) -> ReviewOutcome:
+    """Finish an approved ticket whose mock send was not recorded (approving normally does it)."""
+    try:
+        return await service.send(ticket_id)
     except NoDraft:
         raise HTTPException(404, "no draft for this ticket") from None
     except Conflict as exc:

@@ -182,3 +182,44 @@ def test_the_diff_shows_what_changed() -> None:
     assert "-Old line" in diff and "+New line" in diff
     assert edit_diff("same", "same") == ""
     assert len(edit_diff("a\n" * 50_000, "b\n" * 50_000)) <= 20_000
+
+
+async def test_the_mock_send_marks_the_ticket_sent_once(engine: AsyncEngine) -> None:
+    ticket_id = await drafted(engine)
+    store = ReviewStore(engine)
+    state = await store.load(ticket_id)
+    assert state is not None
+    assert await store.mock_send(ticket_id, NOW) is False  # not approved yet
+    await store.approve(ticket_id, state, OWNER, NOW)
+    assert await store.mock_send(ticket_id, NOW) is True
+    assert await store.mock_send(ticket_id, NOW) is False  # a retry does nothing
+    assert (await statuses(engine, ticket_id))[:2] == ("sent", "approved")
+    async with engine.connect() as conn:
+        sent = (
+            await conn.execute(
+                text("SELECT sent_at FROM drafts WHERE ticket_id = :t"), {"t": ticket_id}
+            )
+        ).scalar_one()
+        rows = (
+            await conn.execute(
+                text(
+                    "SELECT actor, payload FROM audit_log WHERE ticket_id = :t "
+                    "AND event_type = 'ticket.mock_sent'"
+                ),
+                {"t": ticket_id},
+            )
+        ).all()
+    assert sent == NOW
+    [row] = rows
+    assert row.actor == "system" and row.payload["approved_by"] == OWNER
+    assert row.payload["final_text_chars"] == len(state.reply_text)
+
+
+async def test_a_rejected_draft_is_never_sent(engine: AsyncEngine) -> None:
+    ticket_id = await drafted(engine)
+    store = ReviewStore(engine)
+    state = await store.load(ticket_id)
+    assert state is not None
+    await store.reject(ticket_id, state, "not good enough", OWNER, NOW)
+    assert await store.mock_send(ticket_id, NOW) is False
+    assert (await statuses(engine, ticket_id))[0] == "rejected"
