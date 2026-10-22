@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { RequireOwner } from "./components/RequireOwner";
+import { AuditPage } from "./pages/AuditPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MetricsPage } from "./pages/MetricsPage";
 import { QueuePage } from "./pages/QueuePage";
@@ -16,6 +17,14 @@ export function App() {
           element={
             <RequireOwner>
               <QueuePage />
+            </RequireOwner>
+          }
+        />
+        <Route
+          path="/audit/:ticketId?"
+          element={
+            <RequireOwner>
+              <AuditPage />
             </RequireOwner>
           }
         />

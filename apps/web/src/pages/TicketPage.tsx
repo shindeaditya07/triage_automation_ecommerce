@@ -165,6 +165,9 @@ function TicketView({
       </div>
 
       {events.length > 0 && <ActivityList events={events} />}
+      <p>
+        <Link to={`/audit/${ticket.ticket_id}`}>Full audit log for this ticket</Link>
+      </p>
 
       {dialog === "approve" && (
         <ApproveDialog
