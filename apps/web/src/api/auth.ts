@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 
 import { api, unwrap } from "./client";
 import type { components } from "./schema";
@@ -20,10 +21,15 @@ export function useLogin() {
   });
 }
 
+/** Ends the session, forgets everything cached for this owner and goes to the login page. */
 export function useLogout() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   return useMutation({
     mutationFn: () => unwrap(api.POST("/api/v1/auth/logout")),
-    onSettled: () => queryClient.clear(),
+    onSettled: () => {
+      queryClient.clear();
+      navigate("/login", { replace: true });
+    },
   });
 }

@@ -1,3 +1,24 @@
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+
+import { RequireOwner } from "./components/RequireOwner";
+import { LoginPage } from "./pages/LoginPage";
+import { QueuePage } from "./pages/QueuePage";
+
 export function App() {
-  return <h1>ReplyDesk</h1>;
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/"
+          element={
+            <RequireOwner>
+              <QueuePage />
+            </RequireOwner>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
