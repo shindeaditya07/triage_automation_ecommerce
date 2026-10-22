@@ -9,20 +9,20 @@ the clock or the network on its own.
 import argparse
 import asyncio
 import hashlib
-import importlib
 import sys
 import uuid
 from collections.abc import Callable, Sequence
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Protocol
 
-import httpx
-from pydantic import Field
+from pydantic import Field, ValidationError
 
 from evals import corpus, retrieval
 from evals.baseline import BaselinePipeline
 from evals.grounding import blocked_good_drafts, failing_rules
+from evals.live import CostLimitExceeded, LivePipeline, LiveReport
 from evals.metrics import (
     ClassificationMetrics,
     EscalationMetrics,
@@ -34,15 +34,14 @@ from evals.metrics import (
     escalation_metrics,
     grounding_metrics,
 )
-from evals.schema import BadDraft, LabeledTicket, Outcome, RecordedPrediction
+from evals.routing import route
+from evals.schema import BadDraft, LabeledTicket, RecordedPrediction
 from scripts.policy_lib import POLICIES_PATH, policies_sha256, policies_version
-from services.api.context.client import OrderStoreClient
-from services.api.context.lookup import ContextLookup, look_up_context
-from services.api.escalation import post_lookup
-from services.api.escalation.pre_lookup import decide
+from services.api.llm.factory import build_llm_client
 from services.api.llm.fake import FakeLLMClient
 from services.api.models.common import StrictModel
 from services.api.pipeline.classify import classify_ticket
+from services.api.settings import LLMSettings
 
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS_DIR = Path(__file__).parent / "results"
@@ -53,25 +52,6 @@ ESCALATION_RECALL_FLOOR = 0.95
 POST_LOOKUP_REASONS = frozenset(
     {"order_not_found", "order_mismatch", "repeat_complaint", "high_value", "outside_policy"}
 )
-_OUTCOMES = {
-    post_lookup.Route.NO_DRAFT: Outcome.NO_DRAFT_ESCALATION,
-    post_lookup.Route.SUGGESTION_ONLY: Outcome.SUGGESTION_ONLY,
-    post_lookup.Route.DRAFT: Outcome.DRAFT,
-}
-
-
-async def _look_up(ticket: LabeledTicket) -> ContextLookup:
-    """The real lookup against the seeded mock store, served in-process at the frozen time."""
-    mock_main = importlib.import_module("services.mock-store.main")
-    transport = httpx.ASGITransport(app=mock_main.create_app(corpus.EVAL_NOW))
-    async with httpx.AsyncClient(transport=transport, timeout=5) as http:
-        return await look_up_context(
-            OrderStoreClient(http, "http://mock-store.eval"),
-            email=ticket.customer_email,
-            subject=ticket.subject,
-            body=corpus.resolve(ticket.body, ticket.scenario_case),
-            order_id_hint=None,
-        )
 
 
 # The deterministic validator. Set to None and the report says "not evaluated" instead of passing.
@@ -107,29 +87,7 @@ class RecordedPipeline:
             raise RuntimeError(
                 f"classification of {ticket.id} escalated: {stage.escalation_reason}"
             )
-        decision = decide(
-            classification, ticket.subject, corpus.resolve(ticket.body, ticket.scenario_case)
-        )
-        if decision.escalate:  # the real pre-lookup rules, not a recording
-            return Prediction(
-                intent=classification.intent,
-                urgency=classification.urgency.value,
-                outcome=Outcome.NO_DRAFT_ESCALATION,
-                escalation_reasons=decision.reasons,
-            )
-        lookup = asyncio.run(_look_up(ticket))
-        routing = post_lookup.decide(
-            classification,
-            lookup,
-            thread_messages=ticket.thread_message_count,
-            received_at=corpus.EVAL_NOW,
-        )
-        return Prediction(
-            intent=classification.intent,
-            urgency=classification.urgency.value,
-            outcome=_OUTCOMES[routing.route],
-            escalation_reasons=routing.reasons,
-        )
+        return asyncio.run(route(ticket, classification)).prediction
 
 
 class SystemReport(StrictModel):
@@ -159,7 +117,7 @@ class RunMeta(StrictModel):
     date: str
     mode: str
     model: str
-    temperature: float
+    temperature: float | None
     prompt_hashes: dict[str, str]
     policy_version: str
     policies_sha256: str
@@ -170,6 +128,7 @@ class RunMeta(StrictModel):
 
 class Report(StrictModel):
     meta: RunMeta
+    live: LiveReport | None = None
     problems: list[str] = Field(default_factory=list)
     systems: list[SystemReport] = Field(default_factory=list)
     grounding: GroundingReport
@@ -255,18 +214,22 @@ def run(
     mode: str,
     pipelines: Sequence[Pipeline],
     model: str,
-    temperature: float,
+    temperature: float | None,
     run_id: str,
     on: date,
     tickets: Sequence[LabeledTicket] | None = None,
     drafts: Sequence[BadDraft] | None = None,
     recorded: Sequence[RecordedPrediction] | None = None,
+    live: Callable[[], LiveReport] | None = None,
+    trial: bool = False,
 ) -> Report:
     tickets = list(corpus.load_labeled()) if tickets is None else list(tickets)
     drafts = list(corpus.load_bad_drafts()) if drafts is None else list(drafts)
     recorded = list(corpus.load_recorded()) if recorded is None else list(recorded)
 
-    problems = corpus.validate_datasets(tickets, drafts, recorded)
+    # A trial runs a few tickets, but the whole dataset must still be sound.
+    whole = list(corpus.load_labeled()) if trial else tickets
+    problems = corpus.validate_datasets(whole, drafts, recorded)
     meta = RunMeta(
         run_id=run_id,
         date=on.isoformat(),
@@ -307,6 +270,7 @@ def run(
         )
     return Report(
         meta=meta,
+        live=live() if live is not None and not problems else None,
         problems=problems,
         systems=systems,
         grounding=grounding,
@@ -355,6 +319,32 @@ def _comparison(systems: Sequence[SystemReport], mode: str) -> list[str]:
     return [*lines, ""]
 
 
+def _render_live(live: LiveReport) -> list[str]:
+    lines = [
+        "## Live run",
+        "",
+        f"- drafter `{live.drafting_model}`, judge `{live.judge_model}`",
+        f"- tickets that reached drafting: {live.drafts_attempted}",
+        f"- model draft passed grounding on the first try: {_fmt(live.model_draft_first_try)}",
+        f"- model draft passed grounding on either try: {_fmt(live.model_draft_any_try)}",
+        f"- fell back to the standard template: {_fmt(live.fallback_used)}",
+        f"- drafting escalated the ticket instead: {_fmt(live.draft_escalated)}",
+        "- grounding failures by rule (every failed attempt): "
+        + (", ".join(f"{k} x{v}" for k, v in live.grounding_failures_by_rule.items()) or "none"),
+        f"- classification failed, escalated: {', '.join(live.classification_escalated) or 'none'}",
+        f"- cost: Rs {live.total_cost_inr:.2f} in total (Rs {live.setup_cost_inr:.2f} to embed "
+        f"the policy), "
+        + (
+            f"Rs {live.cost_per_ticket_inr:.3f} per ticket"
+            if live.cost_per_ticket_inr is not None
+            else "no tickets"
+        ),
+        f"- seconds per ticket: p50 {live.seconds_p50}, p95 {live.seconds_p95}",
+        "",
+    ]
+    return lines
+
+
 def render_markdown(report: Report) -> str:
     meta = report.meta
     lines = [
@@ -399,6 +389,8 @@ def render_markdown(report: Report) -> str:
                 f"{_fmt(item.recall)} |"
             )
         lines.append("")
+    if report.live is not None:
+        lines += _render_live(report.live)
     lines += [f"## Retrieval: {report.retrieval.status}", "", report.retrieval.detail, ""]
     if report.retrieval.metrics is not None:
         r = report.retrieval.metrics
@@ -442,6 +434,77 @@ def smoke_pipelines() -> list[Pipeline]:
     return [RecordedPipeline(client, recorded), BaselinePipeline()]
 
 
+def _full(args: argparse.Namespace, today: Callable[[], date]) -> int:
+    """`make eval`: the whole pipeline with a live model. Refuses to start unless it can also
+    measure what it spends, because the cost ceiling is the only thing that bounds the bill."""
+    try:
+        settings = LLMSettings()
+    except ValidationError as exc:
+        names = sorted({".".join(map(str, e["loc"])) or "settings" for e in exc.errors()})
+        print(
+            f"The model settings are not valid: {', '.join(names)}. Nothing was run.",
+            file=sys.stderr,
+        )
+        return 2
+    if settings.llm_provider == "fake":
+        print(
+            "LLM_PROVIDER is not set (or is 'fake'), so there is no live model to evaluate. "
+            "Set the LLM_*, JUDGE_* and EMBED_* variables (see .env.example). Nothing was run.",
+            file=sys.stderr,
+        )
+        return 2
+    prices = (settings.llm_input_price_inr_per_1m, settings.llm_output_price_inr_per_1m)
+    if not all(prices) or not all(
+        (settings.judge_input_price_inr_per_1m, settings.judge_output_price_inr_per_1m)
+    ):
+        print(
+            "The *_PRICE_INR_PER_1M settings are zero, so spend would read as Rs 0 and no cost "
+            "limit could ever stop the run. Fill them in from the provider price pages. "
+            "Nothing was run.",
+            file=sys.stderr,
+        )
+        return 2
+    if args.max_cost_inr is None or args.max_cost_inr <= 0:
+        print(
+            "Pass --max-cost-inr N (rupees). The run stops if spend passes it. Nothing was run.",
+            file=sys.stderr,
+        )
+        return 2
+
+    pipeline = LivePipeline(
+        build_llm_client(settings),
+        drafting_model=settings.llm_model or "",
+        judge_model=settings.judge_model,
+        max_cost_inr=args.max_cost_inr,
+    )
+    tickets = list(corpus.load_labeled())
+    trial = args.limit is not None
+    if trial:
+        tickets = tickets[: args.limit]
+    run_id = args.run_id or f"{'trial' if trial else 'full'}-{uuid.uuid4().hex[:8]}"
+    try:
+        report = run(
+            mode="full",
+            pipelines=[pipeline, BaselinePipeline()],
+            model=f"{settings.llm_model} (judge {settings.judge_model})",
+            temperature=settings.llm_temperature,
+            run_id=run_id,
+            on=today(),
+            tickets=tickets,
+            live=pipeline.report,
+            trial=trial,
+        )
+    except CostLimitExceeded as exc:
+        print(f"{exc}. Nothing was saved.", file=sys.stderr)
+        return 3
+    finally:
+        pipeline.close()
+    print(report.model_dump_json(indent=2) if args.json else render_markdown(report))
+    if args.save:
+        print(f"saved to {save(report)}", file=sys.stderr)
+    return 0 if report.passed else 1
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -451,16 +514,20 @@ def main(
     parser.add_argument("--mode", choices=("smoke", "full"), default="smoke")
     parser.add_argument("--save", action="store_true", help="write evals/results/<date>-<run-id>/")
     parser.add_argument("--run-id", default=None)
+    parser.add_argument(
+        "--max-cost-inr",
+        type=Decimal,
+        default=None,
+        help="full mode: stop the run if spend passes this many rupees (required)",
+    )
+    parser.add_argument(
+        "--limit", type=int, default=None, help="full mode: run only the first N tickets (a trial)"
+    )
     parser.add_argument("--json", action="store_true", help="print the report as JSON")
     args = parser.parse_args(argv)
 
     if args.mode == "full":
-        print(
-            "make eval needs the later pipeline steps (order lookup, post-lookup escalation, "
-            "retrieval, drafting, grounding), which are not built yet. Nothing was run.",
-            file=sys.stderr,
-        )
-        return 2
+        return _full(args, today)
 
     run_id = args.run_id or f"smoke-{uuid.uuid4().hex[:8]}"
     report = run(
