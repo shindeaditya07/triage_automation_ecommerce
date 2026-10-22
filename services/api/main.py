@@ -28,6 +28,7 @@ from services.api.jobs.store import JobStore
 from services.api.jobs.worker import Handler
 from services.api.models.enums import JobType
 from services.api.pipeline.store import PipelineStore
+from services.api.pipeline.wiring import PipelineRuntime, build_pipeline
 from services.api.policy_source import loaded_passages
 from services.api.settings import AuthSettings, IntakeSettings, JobSettings, StoreProfileSettings
 
@@ -113,7 +114,8 @@ def create_app(
     database and auth settings come from the environment.
 
     Ticket intake needs a database too; a test can pass `intake_service` (and settings) instead.
-    The job worker and sweeper run inside the app when there is a database. A test that passes
+    The job worker and sweeper run inside the app when there is a database, with the ticket
+    pipeline registered when the LLM settings are in the environment. A test that passes
     an engine gets none unless it also passes `job_settings`.
 
     The app starts and listens whether or not the database is reachable (docs/AGENTS.md 4.2):
@@ -127,12 +129,22 @@ def create_app(
         app.state.auth = _build_auth(auth_settings, database, auth_store, clock)
         app.state.intake = _build_intake(intake_settings, database, intake_service, clock)
         app.state.edit_validation = _build_edit_validation(database, edit_context_source)
-        runner = await _start_jobs(database, job_settings, job_handlers or {}, clock, engine)
+        pipeline: PipelineRuntime | None = None
+        handlers = job_handlers
+        if handlers is None:
+            # The real pipeline only on the environment's own database; a test that passes an
+            # engine or handlers keeps control of both.
+            if engine is None and database.engine is not None:
+                pipeline = build_pipeline(database.engine, clock)
+            handlers = pipeline.handlers if pipeline else {}
+        runner = await _start_jobs(database, job_settings, handlers, clock, engine)
         try:
             yield
         finally:
             if runner is not None:
                 await runner.stop()
+            if pipeline is not None:
+                await pipeline.aclose()
             await database.close()  # drains the pool on SIGTERM
 
     app = FastAPI(title="ReplyDesk API", version="0.1.0", lifespan=lifespan)

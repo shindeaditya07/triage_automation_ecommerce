@@ -149,8 +149,12 @@ Every draft in `drafts` has been checked. Nothing in the app reads drafts yet.
 
 Without a `DraftingConfig` the handler stops after routing; the earlier steps' tests rely on that.
 
-## Not wired yet
+## Registered in the app (`services/api/pipeline/wiring.py`)
 
-`make_process_ticket_handler` (`services/api/pipeline/process.py`) exists but the app does not
-register it: it needs a live `LLMClient`, which needs API keys, and the later steps. Until the
-pipeline is complete, queued jobs have no handler.
+On startup the app builds the handler from the environment: the model from `LLMSettings`, the order
+store from `MOCK_STORE_URL`, the policy index from the database, and the store's sign-off. It does
+this only when the app owns its database (tests that pass an engine or their own handlers are
+untouched) and only when `LLM_PROVIDER` is not `fake`. If the model is not configured, or its
+settings do not validate, the app still starts, logs `pipeline disabled` with the setting names (never
+values), and `process_ticket` jobs fail with "no handler". Drafts are stored for the owner to
+review; nothing is sent to a customer. Staging setup: `guides/pipeline-staging.md`.
