@@ -62,7 +62,9 @@ async def test_filters_and_paging(engine: AsyncEngine) -> None:
     drafted_only = await everything(store, TicketFilter((TicketStatus.DRAFTED,)))
     assert ids <= {i.ticket_id for i in drafted_only}
     assert all(i.status is TicketStatus.DRAFTED for i in drafted_only)
-    assert await everything(store, TicketFilter((TicketStatus.REJECTED,))) == []
+    rejected = await everything(store, TicketFilter((TicketStatus.REJECTED,)))
+    assert all(i.status is TicketStatus.REJECTED for i in rejected)
+    assert not ids & {i.ticket_id for i in rejected}
     everyone = await store.list_tickets(TicketFilter(), 100, 0)
     first = await store.list_tickets(TicketFilter(), 2, 0)
     second = await store.list_tickets(TicketFilter(), 2, 2)

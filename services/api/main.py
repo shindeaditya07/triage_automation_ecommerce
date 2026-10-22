@@ -30,6 +30,9 @@ from services.api.models.enums import JobType
 from services.api.pipeline.store import PipelineStore
 from services.api.pipeline.wiring import PipelineRuntime, build_pipeline
 from services.api.policy_source import loaded_passages
+from services.api.review.routes import router as review_router
+from services.api.review.service import ReviewService
+from services.api.review.store import ReviewStore
 from services.api.settings import AuthSettings, IntakeSettings, JobSettings, StoreProfileSettings
 from services.api.tickets.routes import TicketReader
 from services.api.tickets.routes import router as tickets_router
@@ -113,6 +116,7 @@ def create_app(
     intake_service: IntakeService | None = None,
     edit_context_source: EditContextSource | None = None,
     ticket_reader: TicketReader | None = None,
+    review_service: ReviewService | None = None,
 ) -> FastAPI:
     """Build the app. Tests pass an engine, auth settings, a store and a clock; otherwise the
     database and auth settings come from the environment.
@@ -144,6 +148,16 @@ def create_app(
             if engine is None and database.engine is not None:
                 pipeline = build_pipeline(database.engine, clock)
             handlers = pipeline.handlers if pipeline else {}
+        app.state.review = review_service or (
+            ReviewService(
+                ReviewStore(database.engine),
+                clock,
+                StoreProfileSettings().store_sign_off,
+                loaded_passages(),
+            )
+            if database.engine
+            else None
+        )
         runner = await _start_jobs(database, job_settings, handlers, clock, engine)
         try:
             yield
@@ -160,6 +174,7 @@ def create_app(
     app.include_router(intake_router)
     app.include_router(grounding_router)
     app.include_router(tickets_router)
+    app.include_router(review_router)
 
     @app.exception_handler(SQLAlchemyError)
     @app.exception_handler(OSError)

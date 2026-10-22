@@ -19,7 +19,23 @@ database they answer 503.
 
 Nothing here changes a ticket.
 
-## Acting on a draft (next branch)
+## Acting on a draft
 
-Saving an edit, approving and rejecting are not built yet. When they are, saving calls
-`check_override` and `record_edit_override` (docs/grounding.md), and approval stores the edit diff.
+- `PATCH /api/v1/tickets/{id}/draft` `{reply_text, override?}` saves the owner's edit as the draft's
+  `final_text`; the model's own `reply_text` is never overwritten. The deterministic validator runs
+  on the text. With warnings, the save is refused (422, with the failures) unless `override`
+  `{reason, overridden_rules}` names every rule that fired; the override is then recorded
+  (`draft.edit_override`). An override when nothing fired is refused. The edit and its diff are
+  recorded (`draft.edited`).
+- `POST /api/v1/tickets/{id}/approve` `{original_viewed, confirm_suggestion_only}` approves the
+  saved text (or the model's draft if unedited). The server, not the screen, enforces:
+  escalated, suspected-injection and suggestion-only tickets need `original_viewed: true`;
+  suggestion-only drafts also need `confirm_suggestion_only: true`; the text is re-checked, and
+  warnings need an override on record for exactly those rules (else 409). What is approved is the
+  text that was checked: if another tab changed it in between, the approval fails (409). The
+  decision, the actor and the edit diff go to the audit log (`ticket.approved`).
+- `POST /api/v1/tickets/{id}/reject` `{reason}` (at least 10 characters) records the reason
+  (`ticket.rejected`).
+
+A draft is decided once: only a `pending` draft on a `drafted` ticket accepts any of these (409
+otherwise). Approving does not send anything: there is no send step yet.
