@@ -50,6 +50,7 @@ class FakeReviewStore:
             self.state = replace(self.state, **state)  # type: ignore[arg-type]
         self.overrides: list[EditOverride] = []
         self.events: list[str] = []
+        self.fail_send = False
 
     async def load(self, ticket_id: UUID) -> ReviewState | None:
         return self.state if ticket_id == TICKET else None
@@ -76,6 +77,15 @@ class FakeReviewStore:
         )
         self.events.append(f"approved by {actor}")
         return state.effective_text
+
+    async def mock_send(self, ticket_id, now) -> bool:  # type: ignore[no-untyped-def]
+        if self.fail_send:
+            raise RuntimeError("database went away")
+        if self.state.ticket_status is not TicketStatus.APPROVED:
+            return False
+        self.state = replace(self.state, ticket_status=TicketStatus.SENT)
+        self.events.append("sent")
+        return True
 
     async def reject(self, ticket_id, state, reason, actor, now) -> None:  # type: ignore[no-untyped-def]
         if not self.state.open:

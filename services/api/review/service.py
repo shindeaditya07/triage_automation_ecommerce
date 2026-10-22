@@ -6,9 +6,10 @@ The rules that keep a bad reply from being approved live here, not in the screen
 - an escalated, suspected-injection or suggestion-only ticket is approved only after the owner
   says they viewed the original message, and a suggestion-only draft after a second confirmation;
 - what is approved is the text that was checked, and a draft is decided once.
-Approving records the decision; nothing is sent to the customer here.
+Approving records the decision and then the mock send (nothing leaves the system).
 """
 
+import logging
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Protocol
@@ -27,6 +28,8 @@ from services.api.review.models import (
     SaveEditRequest,
 )
 from services.api.review.store import NotOpen, ReviewState
+
+log = logging.getLogger("replydesk.review")
 
 
 class ReviewStorePort(Protocol):
@@ -51,6 +54,8 @@ class ReviewStorePort(Protocol):
     async def reject(
         self, ticket_id: UUID, state: ReviewState, reason: str, actor: str, now: datetime
     ) -> None: ...
+
+    async def mock_send(self, ticket_id: UUID, now: datetime) -> bool: ...
 
 
 class NoDraft(Exception):
@@ -164,12 +169,39 @@ class ReviewService:
             text = await self._store.approve(ticket_id, state, owner.email, self._clock())
         except NotOpen:
             raise Conflict("this draft changed or was decided while you approved it") from None
+        # The decision is recorded above. If recording the send fails, the ticket stays approved
+        # and `send` below finishes it; the approval is never lost.
+        sent = await self._send(ticket_id)
         return self._outcome(
             ticket_id,
             state,
-            ticket_status=TicketStatus.APPROVED,
+            ticket_status=TicketStatus.SENT if sent else TicketStatus.APPROVED,
             review_status=ReviewStatus.APPROVED,
             final_text=text,
+        )
+
+    async def _send(self, ticket_id: UUID) -> bool:
+        try:
+            return await self._store.mock_send(ticket_id, self._clock())
+        except Exception:
+            log.exception("recording the mock send failed")
+            return False
+
+    async def send(self, ticket_id: UUID) -> ReviewOutcome:
+        """Finish an approved ticket whose send was not recorded. Safe to call again."""
+        state = await self._store.load(ticket_id)
+        if state is None:
+            raise NoDraft
+        if state.review_status is not ReviewStatus.APPROVED:
+            raise Conflict("only an approved draft can be sent")
+        if state.ticket_status is TicketStatus.APPROVED and not await self._send(ticket_id):
+            raise Conflict("the send could not be recorded; try again")
+        return self._outcome(
+            ticket_id,
+            state,
+            ticket_status=TicketStatus.SENT,
+            review_status=ReviewStatus.APPROVED,
+            final_text=state.final_text,
         )
 
     async def reject(self, ticket_id: UUID, request: RejectRequest, owner: Owner) -> ReviewOutcome:

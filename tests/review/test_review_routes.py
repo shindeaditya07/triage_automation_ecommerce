@@ -127,11 +127,11 @@ def test_approving_records_the_decision(client: TestClient, review_store: FakeRe
     assert response.json() | {"ticket_id": None, "draft_id": None} == {
         "ticket_id": None,
         "draft_id": None,
-        "ticket_status": "approved",
+        "ticket_status": "sent",
         "review_status": "approved",
         "final_text": GOOD,
     }
-    assert review_store.events == ["approved by owner@example.com"]
+    assert review_store.events == ["approved by owner@example.com", "sent"]
 
 
 def test_a_draft_is_decided_once(client: TestClient) -> None:
@@ -216,3 +216,30 @@ def test_rejecting_records_the_reason(client: TestClient, review_store: FakeRevi
     assert response.json()["ticket_status"] == "rejected"
     assert review_store.events == ["rejected: the tone is wrong for this customer"]
     assert post(client, "approve").status_code == 409
+
+
+# ---- the mock send ---------------------------------------------------------------------------
+
+
+def test_a_failed_send_keeps_the_approval_and_can_be_finished(
+    client: TestClient, review_store: FakeReviewStore
+) -> None:
+    review_store.fail_send = True
+    response = post(client, "approve")
+    assert response.status_code == 200
+    assert response.json()["ticket_status"] == "approved"  # decided, not yet sent
+    assert post(client, "send").status_code == 409  # still failing
+    review_store.fail_send = False
+    assert post(client, "send").json()["ticket_status"] == "sent"
+    assert review_store.events.count("sent") == 1
+
+
+def test_send_is_idempotent_and_only_for_approved_drafts(
+    client: TestClient, review_store: FakeReviewStore
+) -> None:
+    assert post(client, "send").status_code == 409  # not approved yet
+    assert review_store.events == []
+    post(client, "approve")
+    assert post(client, "send").json()["ticket_status"] == "sent"
+    assert review_store.events.count("sent") == 1  # nothing recorded twice
+    assert post(client, "send", ticket=uuid4()).status_code == 404
