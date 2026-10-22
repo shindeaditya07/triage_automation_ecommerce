@@ -209,6 +209,13 @@ describe("the ticket screen", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  it("does not claim a fallback reply was grounded", async () => {
+    app(detail({ draft: draft({ kind: "fallback_template", citations: [], cited_policies: [] }) }));
+    show();
+    expect(await screen.findByText(/Standard reply\. It makes no claims/)).toBeTruthy();
+    expect(screen.queryByText("Every claim is backed.")).toBeNull();
+  });
+
   it("shows why a ticket failed and offers no actions without a draft", async () => {
     app(
       detail({

@@ -26,6 +26,9 @@ from services.api.intake.store import PostgresTicketStore
 from services.api.jobs.runner import JobRunner
 from services.api.jobs.store import JobStore
 from services.api.jobs.worker import Handler
+from services.api.metrics.routes import MetricsReader
+from services.api.metrics.routes import router as metrics_router
+from services.api.metrics.store import MetricsStore
 from services.api.models.enums import JobType
 from services.api.pipeline.store import PipelineStore
 from services.api.pipeline.wiring import PipelineRuntime, build_pipeline
@@ -116,6 +119,7 @@ def create_app(
     intake_service: IntakeService | None = None,
     edit_context_source: EditContextSource | None = None,
     ticket_reader: TicketReader | None = None,
+    metrics_reader: MetricsReader | None = None,
     review_service: ReviewService | None = None,
 ) -> FastAPI:
     """Build the app. Tests pass an engine, auth settings, a store and a clock; otherwise the
@@ -137,6 +141,10 @@ def create_app(
         app.state.auth = _build_auth(auth_settings, database, auth_store, clock)
         app.state.intake = _build_intake(intake_settings, database, intake_service, clock)
         app.state.edit_validation = _build_edit_validation(database, edit_context_source)
+        app.state.clock = clock
+        app.state.metrics_reader = metrics_reader or (
+            MetricsStore(database.engine) if database.engine else None
+        )
         app.state.ticket_reader = ticket_reader or (
             TicketReadStore(database.engine, loaded_passages()) if database.engine else None
         )
@@ -174,6 +182,7 @@ def create_app(
     app.include_router(intake_router)
     app.include_router(grounding_router)
     app.include_router(tickets_router)
+    app.include_router(metrics_router)
     app.include_router(review_router)
 
     @app.exception_handler(SQLAlchemyError)

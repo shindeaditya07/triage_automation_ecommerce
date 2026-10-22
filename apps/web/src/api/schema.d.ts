@@ -75,6 +75,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Metrics */
+        get: operations["metrics_api_v1_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tickets": {
         parameters: {
             query?: never;
@@ -346,6 +363,40 @@ export interface components {
             /** Text */
             text: string | null;
         };
+        /** Cost */
+        Cost: {
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Per Day */
+            per_day: components["schemas"]["CostDay"][];
+            /** Per Ticket Inr */
+            per_ticket_inr: number | null;
+            /** Total Inr */
+            total_inr: number;
+        };
+        /** CostDay */
+        CostDay: {
+            /** Cost Inr */
+            cost_inr: number;
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Per Ticket Inr */
+            per_ticket_inr: number | null;
+            /** Tickets */
+            tickets: number;
+        };
+        /** Count */
+        Count: {
+            /** Count */
+            count: number;
+            /** Key */
+            key: string;
+        };
         /**
          * DraftKind
          * @enum {string}
@@ -395,6 +446,17 @@ export interface components {
             /** Detail */
             detail: string;
         };
+        /** Escalations */
+        Escalations: {
+            /** By Reason */
+            by_reason: components["schemas"]["Count"][];
+            /** Escalated */
+            escalated: number;
+            /** Rate */
+            rate: number | null;
+            /** Total */
+            total: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -405,6 +467,18 @@ export interface components {
          * @enum {string}
          */
         Intent: "order_status" | "refund" | "return" | "damaged_item" | "product_question" | "cancellation" | "address_change" | "payment" | "warranty" | "other";
+        /**
+         * IntentUrgency
+         * @description One bar of the intent chart, split by urgency. `none` is a ticket not yet classified.
+         */
+        IntentUrgency: {
+            /** By Urgency */
+            by_urgency: {
+                [key: string]: number;
+            };
+            /** Intent */
+            intent: string;
+        };
         /** LoginRequest */
         LoginRequest: {
             /** Email */
@@ -416,6 +490,45 @@ export interface components {
         MeBody: {
             /** Email */
             email: string;
+        };
+        /** MetricsReport */
+        MetricsReport: {
+            /** By Intent */
+            by_intent: components["schemas"]["Count"][];
+            /** By Urgency */
+            by_urgency: components["schemas"]["Count"][];
+            cost: components["schemas"]["Cost"];
+            /** @description Approved drafts whose final text equals the draft (whitespace ignored). */
+            draft_acceptance: components["schemas"]["Rate"];
+            /**
+             * End
+             * Format: date
+             * @description Last day included, in IST.
+             */
+            end: string;
+            escalations: components["schemas"]["Escalations"];
+            /** @description Drafted tickets that ended on the fallback template. */
+            fallback: components["schemas"]["Rate"];
+            /**
+             * Grounding Failures
+             * @description Every rule G-1 to G-10, zeros included.
+             */
+            grounding_failures: components["schemas"]["Count"][];
+            /** Intent Urgency */
+            intent_urgency: components["schemas"]["IntentUrgency"][];
+            /** Policy Coverage */
+            policy_coverage: components["schemas"]["Count"][];
+            /**
+             * Start
+             * Format: date
+             * @description First day included, in IST.
+             */
+            start: string;
+            /** Tickets Total */
+            tickets_total: number;
+            time_to_draft_seconds: components["schemas"]["Spread"];
+            /** @description Draft in queue to mock send, counting only Monday to Saturday 10:00-18:00 IST. */
+            time_to_send_business_seconds: components["schemas"]["Spread"];
         };
         /**
          * OverrideInput
@@ -432,6 +545,18 @@ export interface components {
          * @enum {string}
          */
         ProposedAction: "none" | "request_information" | "return_instructions_suggested" | "cancellation_suggested" | "address_change_suggested" | "store_credit_suggested" | "refund_suggested" | "replacement_suggested" | "escalate";
+        /** Rate */
+        Rate: {
+            /** Denominator */
+            denominator: number;
+            /** Numerator */
+            numerator: number;
+            /**
+             * Rate
+             * @description None when the denominator is zero.
+             */
+            rate: number | null;
+        };
         /** RejectRequest */
         RejectRequest: {
             /** Reason */
@@ -503,6 +628,18 @@ export interface components {
          * @enum {string}
          */
         SourceType: "order_field" | "policy";
+        /**
+         * Spread
+         * @description A time distribution in seconds. Both are None when there is nothing to measure.
+         */
+        Spread: {
+            /** P50 */
+            p50: number | null;
+            /** P95 */
+            p95: number | null;
+            /** Samples */
+            samples: number;
+        };
         /** TicketDetail */
         TicketDetail: {
             /** Body */
@@ -769,6 +906,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    metrics_api_v1_metrics_get: {
+        parameters: {
+            query?: {
+                /** @description First day (IST), inclusive. */
+                start?: string | null;
+                /** @description Last day (IST), inclusive. */
+                end?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricsReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -40,20 +40,29 @@ export function EvidencePanel({ ticket }: { ticket: TicketDetail }) {
       {draft && (
         <>
           <h3>Grounding</h3>
-          {grounding === null && <p className="hint">No grounding result stored.</p>}
-          {grounding?.passed === true && <p className="ok">Every claim is backed.</p>}
-          {grounding && grounding.passed !== true && (
-            <p className="warn-text">The checks did not all pass.</p>
-          )}
-          {grounding?.judgeError && <p className="warn-text">Judge: {grounding.judgeError}</p>}
-          {grounding && grounding.failures.length > 0 && (
-            <ul>
-              {grounding.failures.map((f, i) => (
-                <li key={i}>
-                  <strong>{f.ruleId}</strong> {f.detail}
-                </li>
-              ))}
-            </ul>
+          {draft.kind === "fallback_template" ? (
+            <p className="hint">
+              Standard reply. It makes no claims from the order or policies, so there is nothing to
+              check.
+            </p>
+          ) : (
+            <>
+              {grounding === null && <p className="hint">No grounding result stored.</p>}
+              {grounding?.passed === true && <p className="ok">Every claim is backed.</p>}
+              {grounding && grounding.passed !== true && (
+                <p className="warn-text">The checks did not all pass.</p>
+              )}
+              {grounding?.judgeError && <p className="warn-text">Judge: {grounding.judgeError}</p>}
+              {grounding && grounding.failures.length > 0 && (
+                <ul>
+                  {grounding.failures.map((f, i) => (
+                    <li key={i}>
+                      <strong>{f.ruleId}</strong> {f.detail}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
           )}
 
           <h3>Cited order fields and policies</h3>
