@@ -183,3 +183,12 @@ async def test_an_unclassified_ticket_cannot_be_drafted(config: DraftingConfig) 
     bare = TicketText(uuid4(), TicketStatus.NEW, None, "hi", RECEIVED)
     with pytest.raises(ValueError, match="classified"):
         await draft_ticket(ScriptedDrafter([]), config, bare, found())
+
+
+async def test_a_closing_the_model_wrote_is_replaced_by_the_stores_sign_off(
+    config: DraftingConfig,
+) -> None:
+    client = ScriptedDrafter([output("Hello.\n\nBest regards,\nKaveri Home Goods Team")])
+    stage = await draft_ticket(client, config, ticket(), found(), snapshot_id=uuid4())
+    assert stage.draft is not None and stage.attempt == 1 and stage.failed_attempts == []
+    assert stage.draft.reply_text == f"Hello.\n\n{SIGN_OFF}"
