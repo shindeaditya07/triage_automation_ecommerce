@@ -22,7 +22,13 @@ from pydantic import Field, ValidationError
 from evals import corpus, retrieval
 from evals.baseline import BaselinePipeline
 from evals.grounding import blocked_good_drafts, failing_rules
-from evals.live import CostLimitExceeded, LivePipeline, LiveReport
+from evals.live import (
+    CostLimitExceeded,
+    LivePipeline,
+    LiveReport,
+    PacedClient,
+    ProviderUnavailable,
+)
 from evals.metrics import (
     ClassificationMetrics,
     EscalationMetrics,
@@ -262,6 +268,13 @@ def run(
         if not problems
         else RetrievalReport(status="not_evaluated", detail="the datasets have problems")
     )
+    live_report = live() if live is not None and not problems else None
+    if live_report is not None and live_report.provider_failures:
+        count = sum(live_report.provider_failures.values())
+        failures.append(
+            f"live: the provider failed {count} tickets ({live_report.provider_failures}), so "
+            "the live numbers are not valid. Lower --calls-per-minute and run again"
+        )
     if grounding.metrics is not None and grounding.metrics.missed:
         failures.append(f"grounding: validator missed {', '.join(grounding.metrics.missed)}")
     if grounding.false_blocks:
@@ -270,7 +283,7 @@ def run(
         )
     return Report(
         meta=meta,
-        live=live() if live is not None and not problems else None,
+        live=live_report,
         problems=problems,
         systems=systems,
         grounding=grounding,
@@ -332,6 +345,8 @@ def _render_live(live: LiveReport) -> list[str]:
         "- grounding failures by rule (every failed attempt): "
         + (", ".join(f"{k} x{v}" for k, v in live.grounding_failures_by_rule.items()) or "none"),
         f"- classification failed, escalated: {', '.join(live.classification_escalated) or 'none'}",
+        "- provider failures (the call failed, not the model; any makes the run INVALID): "
+        + (", ".join(f"{k} x{v}" for k, v in live.provider_failures.items()) or "none"),
         f"- cost: Rs {live.total_cost_inr:.2f} in total (Rs {live.setup_cost_inr:.2f} to embed "
         f"the policy), "
         + (
@@ -471,11 +486,15 @@ def _full(args: argparse.Namespace, today: Callable[[], date]) -> int:
         )
         return 2
 
+    client = build_llm_client(settings)
+    if args.calls_per_minute is not None:
+        client = PacedClient(client, args.calls_per_minute)
     pipeline = LivePipeline(
-        build_llm_client(settings),
+        client,
         drafting_model=settings.llm_model or "",
         judge_model=settings.judge_model,
         max_cost_inr=args.max_cost_inr,
+        progress=lambda line: print(line, file=sys.stderr, flush=True),
     )
     tickets = list(corpus.load_labeled())
     trial = args.limit is not None
@@ -497,6 +516,13 @@ def _full(args: argparse.Namespace, today: Callable[[], date]) -> int:
     except CostLimitExceeded as exc:
         print(f"{exc}. Nothing was saved.", file=sys.stderr)
         return 3
+    except ProviderUnavailable as exc:
+        print(
+            f"{exc}. Nothing was saved. This is usually a rate limit: lower --calls-per-minute "
+            "or check the key's quota, then run again.",
+            file=sys.stderr,
+        )
+        return 4
     finally:
         pipeline.close()
     print(report.model_dump_json(indent=2) if args.json else render_markdown(report))
@@ -519,6 +545,12 @@ def main(
         type=Decimal,
         default=None,
         help="full mode: stop the run if spend passes this many rupees (required)",
+    )
+    parser.add_argument(
+        "--calls-per-minute",
+        type=float,
+        default=None,
+        help="full mode: space model calls to stay inside the provider's rate limit",
     )
     parser.add_argument(
         "--limit", type=int, default=None, help="full mode: run only the first N tickets (a trial)"

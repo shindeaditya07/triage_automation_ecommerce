@@ -7,7 +7,14 @@ from typing import Any
 import pytest
 
 from evals import corpus, runner
-from evals.live import CostLimitExceeded, LivePipeline, percentile
+from evals.live import (
+    CostLimitExceeded,
+    LivePipeline,
+    PacedClient,
+    ProviderUnavailable,
+    is_provider_failure,
+    percentile,
+)
 from evals.schema import LabeledTicket, Outcome
 from services.api.llm.client import CallRecord, DraftRequest, LLMResult
 from services.api.llm.errors import LLMRequestError
@@ -53,14 +60,14 @@ def test_a_ticket_the_rules_escalate_is_never_drafted() -> None:
 def test_a_failing_drafter_escalates_the_ticket_and_the_report_counts_it() -> None:
     pipeline = live()
     try:
-        tickets = [t for t in corpus.load_labeled() if t.outcome is Outcome.DRAFT][:3]
+        tickets = [t for t in corpus.load_labeled() if t.outcome is Outcome.DRAFT][:2]
         outcomes = [pipeline.predict(t).outcome for t in tickets]
         report = pipeline.report()
     finally:
         pipeline.close()
-    assert outcomes == [Outcome.NO_DRAFT_ESCALATION] * 3
-    assert report.drafts_attempted == 3
-    assert report.draft_escalated.successes == 3
+    assert outcomes == [Outcome.NO_DRAFT_ESCALATION] * 2
+    assert report.drafts_attempted == 2
+    assert report.draft_escalated.successes == 2
     assert report.model_draft_any_try.successes == 0
     assert all(d.draft_escalation == "llm_error:LLMRequestError" for d in report.tickets)
 
@@ -139,3 +146,89 @@ def test_full_mode_refuses_without_a_cost_limit(
     configure(monkeypatch, **prices)
     assert runner.main(["--mode", "full"]) == 2
     assert "--max-cost-inr" in capsys.readouterr().err
+
+
+def test_a_failed_call_is_a_provider_failure_and_a_bad_answer_is_not() -> None:
+    assert is_provider_failure("llm_error:LLMRateLimitError")
+    assert is_provider_failure("llm_error:CircuitOpenError")
+    assert is_provider_failure("grounding_unavailable")
+    assert not is_provider_failure("invalid_output")
+    assert not is_provider_failure("high_value")
+    assert not is_provider_failure(None)
+
+
+def test_provider_failures_are_counted_apart_from_model_failures() -> None:
+    pipeline = live()
+    try:
+        tickets = [t for t in corpus.load_labeled() if t.outcome is Outcome.DRAFT][:2]
+        for t in tickets:
+            pipeline.predict(t)
+        report = pipeline.report()
+    finally:
+        pipeline.close()
+    assert report.provider_failures == {"llm_error:LLMRequestError": 2}
+    assert all(d.provider_error for d in report.tickets)
+
+
+def test_the_run_stops_after_three_provider_failures_in_a_row() -> None:
+    pipeline = live()
+    try:
+        tickets = [t for t in corpus.load_labeled() if t.outcome is Outcome.DRAFT][:3]
+        with pytest.raises(ProviderUnavailable):
+            for t in tickets:
+                pipeline.predict(t)
+    finally:
+        pipeline.close()
+
+
+def test_a_run_with_provider_failures_is_invalid_not_a_pass() -> None:
+    pipeline = live()
+    try:
+        tickets = [t for t in corpus.load_labeled() if t.outcome is Outcome.DRAFT][:2]
+        report = runner.run(
+            mode="full",
+            pipelines=[pipeline],
+            model="m",
+            temperature=0.0,
+            run_id="t",
+            on=corpus.EVAL_NOW.date(),
+            tickets=tickets,
+            live=pipeline.report,
+            trial=True,
+        )
+    finally:
+        pipeline.close()
+    assert not report.passed
+    assert any("not valid" in f for f in report.failures)
+
+
+class Stopwatch:
+    def __init__(self) -> None:
+        self.now = 100.0
+        self.slept: list[float] = []
+
+    def monotonic(self) -> float:
+        return self.now
+
+    async def sleep(self, seconds: float) -> None:
+        self.slept.append(round(seconds, 6))
+        self.now += seconds
+
+
+@pytest.mark.anyio
+async def test_calls_are_spaced_by_the_rate() -> None:
+    clock = Stopwatch()
+    client = PacedClient(
+        Priced.from_jsonl(corpus.RECORDED_PATH),
+        30,  # one call every two seconds
+        sleep=clock.sleep,
+        monotonic=clock.monotonic,
+    )
+    for _ in range(3):
+        await client.embed(["a"])
+    assert clock.slept == [2.0, 2.0]  # the first call goes straight away
+
+
+def test_a_pace_of_zero_is_refused() -> None:
+    with pytest.raises(ValueError, match="above zero"):
+        PacedClient(Priced(), 0)

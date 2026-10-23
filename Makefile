@@ -51,8 +51,8 @@ test: ## Unit and pipeline tests (no live LLM or network)
 	$(UV) run pytest
 	cd apps/web && npm test
 
-eval: ## Live eval: make eval MAX_COST_INR=100 [LIMIT=5 for a trial]. Costs money; stops at the limit
-	$(UV) run python -m evals.runner --mode full --save $(if $(MAX_COST_INR),--max-cost-inr $(MAX_COST_INR)) $(if $(LIMIT),--limit $(LIMIT))
+eval: ## Live eval: make eval MAX_COST_INR=100 [CPM=10] [LIMIT=5]. Costs money; stops at the limit
+	$(UV) run python -m evals.runner --mode full --save $(if $(MAX_COST_INR),--max-cost-inr $(MAX_COST_INR)) $(if $(CPM),--calls-per-minute $(CPM)) $(if $(LIMIT),--limit $(LIMIT))
 
 eval-smoke: ## Smoke eval against recorded fixtures (CI-safe, no model calls)
 	$(UV) run python -m evals.runner --mode smoke
