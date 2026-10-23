@@ -12,6 +12,7 @@ from evals.live import (
     LivePipeline,
     PacedClient,
     ProviderUnavailable,
+    draft_kind,
     is_provider_failure,
     percentile,
 )
@@ -20,6 +21,7 @@ from services.api.llm.client import CallRecord, DraftRequest, LLMResult
 from services.api.llm.errors import LLMRequestError
 from services.api.llm.fake import FakeLLMClient
 from services.api.models.draft import DraftOutput
+from services.api.pipeline.draft import FALLBACK_MODEL, DraftStage
 
 
 class Priced(FakeLLMClient):
@@ -91,6 +93,18 @@ def test_the_run_stops_when_spend_passes_the_limit() -> None:
             pipeline.predict(by_outcome(Outcome.NO_DRAFT_ESCALATION))
     finally:
         pipeline.close()
+
+
+def stage(model: str | None) -> DraftStage:
+    draft = None if model is None else DraftOutput.model_construct(model=model)
+    return DraftStage(draft=draft)
+
+
+def test_the_fallback_template_is_not_counted_as_a_model_draft() -> None:
+    assert draft_kind(stage("gemini-x")) == "llm"
+    assert draft_kind(stage(FALLBACK_MODEL)) == "fallback_template"
+    assert draft_kind(stage(None)) is None
+    assert draft_kind(None) is None
 
 
 def test_percentile() -> None:

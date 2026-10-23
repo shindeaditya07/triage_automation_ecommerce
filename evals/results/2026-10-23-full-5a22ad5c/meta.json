@@ -1,0 +1,20 @@
+{
+  "run_id": "full-5a22ad5c",
+  "date": "2026-10-23",
+  "mode": "full",
+  "model": "gemini-3.5-flash-lite (judge gemini-3.5-flash-lite)",
+  "temperature": 0.0,
+  "prompt_hashes": {
+    "classify.md": "b22650666285b4f5cb5fef2638276cd1139e25ad7723a97ecba1a8efe107b139",
+    "draft.md": "6697d93dfa0184dc9e21dd62230d99a15b627b0900c22929f3ff6db3143fae06",
+    "judge.md": "9c700a029978388748371a36b84e3af6f1d272047e4c89d45059dc8fe2f4de34"
+  },
+  "policy_version": "1.1",
+  "policies_sha256": "fd509177b1674ee620823cd3d0654a56c8d38da67ff09ac636a0203b83f03387",
+  "dataset_sha256": {
+    "labeled.jsonl": "e52d32b35751e1bfa15f822131a09a207079d4e54495ce17f14d7bf2c34146ae",
+    "bad_drafts.jsonl": "9696eed8e7e8020c5ad81eb030dcb49429dfae36a72822b779131ce051ec35f6"
+  },
+  "tickets": 78,
+  "bad_drafts": 40
+}

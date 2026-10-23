@@ -38,9 +38,9 @@ order store. The pipeline does not depend on that store: it needs an order API a
    which the owner cannot approve in one click.
 6. **Retrieves** the policy passages the intent requires, plus a vector search over the policy.
 7. **Drafts** a reply that sees only the order snapshot and those passages, with citations.
-8. **Checks the draft** with ten deterministic rules (G-1 to G-10) and then a judge model from a
-   different provider. A draft that fails is retried once, then replaced by a standard template
-   that makes no claims.
+8. **Checks the draft** with ten deterministic rules (G-1 to G-10) and then a judge model (the
+   same provider in the measured run; see the evaluation results). A draft that fails is retried
+   once, then replaced by a standard template that makes no claims.
 9. **Shows the owner** the message, the draft and the evidence side by side. Edits are re-checked
    as the owner types, and sending over a warning needs a written reason.
 10. **Records everything** in an audit log and a metrics dashboard computed from stored data.
@@ -148,12 +148,30 @@ edge cases through the whole pipeline and checks where it lands.
 
 ## Evaluation results
 
-**No live-model eval has been run yet.** Until one is, there is no measured result for any real
-model, and the table below is deliberately empty.
+**One live run so far, and it failed its own gate.** On 2026-10-23, `gemini-3.5-flash-lite` (drafter,
+judge and classifier) ran over the 78 labeled tickets: escalation recall was 0.893 against a gate of
+0.95. The full report is in [`evals/results/2026-10-23-full-5a22ad5c`](evals/results/2026-10-23-full-5a22ad5c/report.md).
 
-| Date | Drafter | Judge | Intent accuracy | Escalation recall | Grounding failures | Cost / ticket |
+| Date | Drafter / Judge | Intent accuracy | Escalation recall | Escalation precision | Model drafts passing grounding, first try / either try | Cost / ticket |
 |---|---|---|---|---|---|---|
-| not yet run | | | | | | |
+| 2026-10-23 | gemini-3.5-flash-lite / gemini-3.5-flash-lite | 0.897 (0.81-0.95) | **0.893 (0.73-0.96), below the 0.95 gate** | 0.926 (0.77-0.98) | 0.552 / 0.810 (n=58), 19% fell back to the template | Rs 0.23 |
+
+The keyword baseline scored intent 0.795, recall 0.500 and precision 0.737 on the same tickets, so
+the model is better on every measure, but it misses the recall gate:
+
+- **Both non-English tickets (Hindi, Marathi) were missed.** The model classified them
+  confidently, and nothing in code detects the language.
+- **One product question the policy cannot answer** was drafted instead of marked suggestion only.
+- **The model's drafts often fail grounding.** 45% failed on the first try and 19% (11 of 58) failed
+  twice, so the standard template went out instead. The failures were 29 sign-off (G-8), 7 G-3,
+  3 G-5 and 2 G-1. The template is safe but says nothing useful, so this is the weakest part.
+- The first version of this report counted those 11 templates as model drafts. The mistake was in
+  the evaluator and is corrected; see `CORRECTION.md` in the results folder.
+
+Limits of this run: the judge is the same model as the drafter, so grounding is checked less
+independently than it appears; the policy embeddings were the fake hashed ones, so vector search
+was not measured; the data is synthetic and 28 escalation cases give a wide interval; and it is a
+single run at temperature 0.
 
 What exists today is the smoke run (2026-10-22, `smoke-622461a4`, policy v1.1). It replays recorded
 fixtures with seeded mistakes, so it tests the harness, not a model. Two of its numbers are real
@@ -212,7 +230,7 @@ For what to do when something breaks, read [docs/runbook.md](docs/runbook.md).
 - **No real sending.** "Send" records a mock send in the audit log. Email delivery is not built.
 - **English only.** A non-English message is not detected by code. It escalates only because the
   model is unsure or finds no workflow, so a confident model could draft a reply to it. The live
-  eval should check this.
+  eval confirmed it: neither of the two non-English tickets was escalated.
 - **No image analysis.** Whether a photo is attached is recorded; its contents are not read.
 - **No product catalog.** Product questions are answered from the FAQ in the policy document; the
   rest escalate.
