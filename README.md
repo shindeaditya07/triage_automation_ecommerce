@@ -136,7 +136,7 @@ The response is `202 {"status": "received"}`. The ticket then appears in the que
 make lint          # ruff, mypy, eslint, prettier
 make test          # backend and frontend tests, no network, no live model
 make eval-smoke    # eval harness on recorded fixtures (what CI runs)
-make eval          # full eval against a live model (costs money; needs keys)
+make eval MAX_COST_INR=100   # live eval (costs money; see docs/evals.md)
 make audit         # pip-audit and npm audit
 make policy-check  # policy constants match the locked policies.md
 ```
