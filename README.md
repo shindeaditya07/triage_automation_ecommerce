@@ -228,9 +228,10 @@ For what to do when something breaks, read [docs/runbook.md](docs/runbook.md).
 - **Mock store only.** There is no Shopify or WooCommerce connector. The order client is the one
   place a real store would plug in.
 - **No real sending.** "Send" records a mock send in the audit log. Email delivery is not built.
-- **English only.** A non-English message is not detected by code. It escalates only because the
-  model is unsure or finds no workflow, so a confident model could draft a reply to it. The live
-  eval confirmed it: neither of the two non-English tickets was escalated.
+- **English only.** A message mostly in a non-Latin script (Hindi, Marathi, Tamil, Arabic and so
+  on) is escalated by plain code. Another language written in Latin letters ("mera order nahi
+  aaya", French) is not detected: it escalates only if the model is unsure or finds no workflow,
+  so a confident model could draft a reply to it.
 - **No image analysis.** Whether a photo is attached is recorded; its contents are not read.
 - **No product catalog.** Product questions are answered from the FAQ in the policy document; the
   rest escalate.

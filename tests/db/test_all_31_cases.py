@@ -72,9 +72,7 @@ EXPECTED: dict[int, Expect] = {
     26: Expect(Intent.ORDER_STATUS),
     27: Expect(Intent.ORDER_STATUS),
     28: Expect(Intent.DAMAGED_ITEM),
-    29: Expect(
-        Intent.OTHER, "escalated", "low_confidence,intent_other", lookup=None
-    ),  # before any lookup
+    29: Expect(Intent.ORDER_STATUS, "escalated", "non_english", lookup=None),  # before any lookup
     30: Expect(Intent.ORDER_STATUS),
     31: Expect(Intent.WARRANTY),
 }
@@ -144,8 +142,6 @@ async def process(engine: AsyncEngine, case: int, expect: Expect) -> tuple[UUID,
     created = await ingest(engine, request(case, "main", **overrides))
     await set_received(engine, created.ticket_id, NOW)
     classification = good().model_copy(update={"intent": expect.intent})
-    if case == 29:  # the model cannot read it: unsure, and no workflow applies
-        classification = classification.model_copy(update={"confidence": 0.4})
     client = Client([output()], expect.intent)
     client._classification = classification
     await (await drafting_handler(engine, client))(job_for(created.ticket_id))

@@ -6,6 +6,8 @@ missed model flag does not mean a missed escalation:
 
 - abusive tone, a legal threat, suspected fraud, or a prompt injection, as the classifier flagged
   it OR the keyword backstop (ESC-8.2) or the structural injection scan found it;
+- the message is mostly written in a non-Latin script (`non_english`), whatever the model made
+  of it;
 - classifier confidence below 0.70;
 - intent `other` (no policy workflow applies).
 
@@ -17,6 +19,7 @@ from pydantic import Field
 
 from services.api.escalation.injection import scan_injection
 from services.api.escalation.keyword_backstop import scan
+from services.api.escalation.language import is_non_english
 from services.api.models.common import StrictModel
 from services.api.models.enums import Flag, Intent
 from services.api.models.ticket import Classification
@@ -57,6 +60,8 @@ def decide(classification: Classification, subject: str | None, body: str) -> Pr
             flags.append(flag)
 
     reasons = [reason for flag, reason in _FLAG_REASONS if flag in flags]
+    if is_non_english(subject, body):
+        reasons.append("non_english")
     if classification.confidence < CONFIDENCE_FLOOR:
         reasons.append("low_confidence")
     if classification.intent is Intent.OTHER:

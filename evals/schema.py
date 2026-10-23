@@ -16,6 +16,7 @@ EscalationReason = Literal[
     "legal_threat",
     "suspected_fraud",
     "prompt_injection",
+    "non_english",
     "low_confidence",
     "intent_other",
     "order_not_found",
