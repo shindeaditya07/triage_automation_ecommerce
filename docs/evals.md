@@ -39,6 +39,21 @@ is below 0.95, the same floor as the smoke run.
 - `--limit N` (or `make eval LIMIT=5`) runs the first N tickets, to check keys and prices before
   a full run. A trial is not a result and its report says nothing about the whole dataset.
 
+## Rate limits and invalid runs
+
+A rate limit is not a model failure, so a ticket the provider failed (a rate limit, an outage, a
+timeout, an open circuit breaker, a rejected request, or a judge that gave no verdict) is counted
+separately as a **provider failure**:
+
+- Any provider failure makes the run **FAIL** with "the live numbers are not valid". A run that
+  escalated tickets only because calls failed says nothing about the model, however good its
+  escalation recall looks.
+- After three provider failures in a row the run stops, saves nothing and exits with code 4, so a
+  dead quota does not burn through the other tickets.
+- `--calls-per-minute N` (`make eval CPM=N`) spaces every model call, embeddings included, at
+  least `60 / N` seconds apart. Set it below the provider's requests-per-minute limit. A ticket
+  takes about 4 to 6 calls (classify, embed, draft, judge, and again on a retry).
+
 ## Reading the results
 
 - Rates carry a 95% Wilson interval. With 78 tickets one miss moves a rate noticeably.

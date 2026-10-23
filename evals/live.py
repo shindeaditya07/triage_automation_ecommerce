@@ -9,7 +9,7 @@ memory, so a run touches no database. Tickets are processed one at a time on one
 import asyncio
 import math
 import time
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
 from uuid import UUID
@@ -21,14 +21,98 @@ from evals.metrics import Prediction, Rate, rate
 from evals.routing import route
 from evals.schema import LabeledTicket, Outcome
 from services.api.escalation import post_lookup
-from services.api.llm.client import CallRecord, LLMClient
+from services.api.llm.client import (
+    CallRecord,
+    ClassifyRequest,
+    DraftRequest,
+    EmbedKind,
+    JudgeRequest,
+    LLMClient,
+    LLMResult,
+)
 from services.api.models.common import StrictModel
+from services.api.models.draft import DraftOutput
 from services.api.models.enums import DraftKind, Intent, TicketStatus, Urgency
+from services.api.models.judge import JudgeOutput
+from services.api.models.ticket import Classification
 from services.api.pipeline.classify import classify_ticket
-from services.api.pipeline.draft import DraftingConfig, DraftStage, draft_ticket
+from services.api.pipeline.draft import (
+    GROUNDING_UNAVAILABLE_REASON,
+    DraftingConfig,
+    DraftStage,
+    draft_ticket,
+)
 from services.api.pipeline.store import TicketText
 from services.api.policy_source import parse_passages, policies_path, policies_version
 from services.api.retrieval.index import MemoryPolicyIndex
+
+STOP_AFTER_CONSECUTIVE_PROVIDER_FAILURES = 3
+PROVIDER_FAILURE_PREFIX = "llm_error:"  # a call failed, as opposed to the model answering badly
+
+
+def is_provider_failure(reason: str | None) -> bool:
+    """A rate limit, outage, timeout, open breaker or rejected request: the model never answered,
+    so the ticket says nothing about how good the model is."""
+    return reason is not None and (
+        reason.startswith(PROVIDER_FAILURE_PREFIX) or reason == GROUNDING_UNAVAILABLE_REASON
+    )
+
+
+class ProviderUnavailable(RuntimeError):
+    def __init__(self, reason: str, tickets: int) -> None:
+        super().__init__(
+            f"the provider failed {STOP_AFTER_CONSECUTIVE_PROVIDER_FAILURES} tickets in a row "
+            f"({reason}) after {tickets} tickets; run stopped"
+        )
+
+
+class PacedClient(LLMClient):
+    """Spaces model calls at least `60 / calls_per_minute` seconds apart, so a run stays inside a
+    rate limit instead of tripping it. Every kind of call counts, embedding included."""
+
+    def __init__(
+        self,
+        inner: LLMClient,
+        calls_per_minute: float,
+        *,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        monotonic: Callable[[], float] = time.monotonic,
+    ) -> None:
+        if calls_per_minute <= 0:
+            raise ValueError("calls_per_minute must be above zero")
+        self._inner = inner
+        self._gap = 60.0 / calls_per_minute
+        self._sleep = sleep
+        self._monotonic = monotonic
+        self._next = 0.0
+
+    async def _wait(self) -> None:
+        now = self._monotonic()
+        self._next = max(self._next, now) + self._gap
+        delay = self._next - self._gap - now
+        if delay > 0:
+            await self._sleep(delay)
+
+    async def classify(self, request: ClassifyRequest) -> LLMResult[Classification]:
+        await self._wait()
+        return await self._inner.classify(request)
+
+    async def draft(self, request: DraftRequest) -> LLMResult[DraftOutput]:
+        await self._wait()
+        return await self._inner.draft(request)
+
+    async def judge(self, request: JudgeRequest) -> LLMResult[JudgeOutput]:
+        await self._wait()
+        return await self._inner.judge(request)
+
+    async def embed(
+        self, texts: Sequence[str], kind: EmbedKind = "document"
+    ) -> LLMResult[list[list[float]]]:
+        await self._wait()
+        return await self._inner.embed(texts, kind)
+
+    async def aclose(self) -> None:
+        await self._inner.aclose()
 
 
 class CostLimitExceeded(RuntimeError):
@@ -49,6 +133,9 @@ class TicketLive(StrictModel):
     draft_escalation: str | None = Field(
         default=None, description="Why drafting escalated the ticket instead."
     )
+    provider_error: str | None = Field(
+        default=None, description="The call failed (rate limit, outage); the model never answered."
+    )
     cost_inr: float
     seconds: float
 
@@ -68,6 +155,10 @@ class LiveReport(StrictModel):
     draft_escalated: Rate
     grounding_failures_by_rule: dict[str, int]
     classification_escalated: list[str]
+    provider_failures: dict[str, int] = Field(
+        default_factory=dict,
+        description="Tickets the provider failed, not the model, by reason. Any voids the run.",
+    )
     tickets: list[TicketLive]
 
 
@@ -93,6 +184,8 @@ class LivePipeline:
     sign_off: str = corpus.STORE_SIGN_OFF
     name: str = "live"
     gated: bool = True
+    progress: Callable[[str], None] | None = None
+    _provider_streak: int = 0
     spent: Decimal = Decimal(0)
     setup_cost: Decimal = Decimal(0)
     details: list[TicketLive] = field(default_factory=list)
@@ -194,6 +287,8 @@ class LivePipeline:
             kind = "llm"
         elif drafted is not None and drafted.escalation_reason is None:
             kind = DraftKind.FALLBACK_TEMPLATE.value
+        reason = escalation or (drafted.escalation_reason if drafted else None)
+        provider_error = reason if is_provider_failure(reason) else None
         self.details.append(
             TicketLive(
                 ticket_id=ticket.id,
@@ -203,11 +298,21 @@ class LivePipeline:
                 attempt=drafted.attempt if drafted and kind else None,
                 failed_rules=rules,
                 draft_escalation=escalation or (drafted.escalation_reason if drafted else None),
+                provider_error=provider_error,
                 cost_inr=float(spent),
                 seconds=round(time.monotonic() - started, 2),
             )
         )
+        self._provider_streak = self._provider_streak + 1 if provider_error else 0
+        if self.progress is not None:
+            self.progress(
+                f"{ticket.id} ({len(self.details)}) "
+                f"{'PROVIDER FAILURE ' + provider_error if provider_error else 'ok'}, "
+                f"spent Rs {self.spent + spent:.2f}"
+            )
         self._charge(spent)
+        if provider_error and self._provider_streak >= STOP_AFTER_CONSECUTIVE_PROVIDER_FAILURES:
+            raise ProviderUnavailable(provider_error, len(self.details))
 
     def report(self) -> LiveReport:
         details = self.details
@@ -218,6 +323,10 @@ class LivePipeline:
         for d in details:
             for rule in d.failed_rules:
                 failures[rule] = failures.get(rule, 0) + 1
+        provider_failures: dict[str, int] = {}
+        for d in details:
+            if d.provider_error:
+                provider_failures[d.provider_error] = provider_failures.get(d.provider_error, 0) + 1
         total = sum(d.cost_inr for d in details) + float(self.setup_cost)
         seconds = [d.seconds for d in details]
         return LiveReport(
@@ -235,6 +344,7 @@ class LivePipeline:
             draft_escalated=rate(len(attempted) - len(drafted), len(attempted)),
             grounding_failures_by_rule=dict(sorted(failures.items())),
             classification_escalated=[d.ticket_id for d in details if not d.classified],
+            provider_failures=dict(sorted(provider_failures.items())),
             tickets=details,
         )
 
