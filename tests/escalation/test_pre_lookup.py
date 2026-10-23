@@ -92,3 +92,8 @@ def test_the_subject_counts() -> None:
 def test_other_flags_do_not_escalate_here() -> None:
     flags = [Flag.ANGRY, Flag.COMPENSATION_REQUEST, Flag.REPEAT_COMPLAINT, Flag.ORDER_MISMATCH]
     assert not decide(classification(flags=flags), None, CALM).escalate
+
+
+def test_a_confident_classification_of_hindi_text_still_escalates() -> None:
+    decision = decide(classification(confidence=0.95), "ऑर्डर कहाँ है", "मेरा ऑर्डर अभी तक नहीं पहुँचा।")
+    assert decision.escalate and decision.reasons == ["non_english"]

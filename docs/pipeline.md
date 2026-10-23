@@ -32,6 +32,7 @@ owner with **no draft** when ANY of these holds (spec 14.1):
 |---|---|
 | `abusive`, `legal_threat`, `suspected_fraud` | the classifier flag OR the keyword backstop (ESC-8.2) |
 | `prompt_injection` | the classifier flag OR the structural scan (`escalation/injection.py`) |
+| `non_english` | 30% or more of the letters are not Latin (Hindi, Marathi, Tamil, Arabic and so on). Another language in Latin letters is not caught; see `escalation/language.py` |
 | `low_confidence` | confidence strictly below 0.70 |
 | `intent_other` | intent is `other` |
 
