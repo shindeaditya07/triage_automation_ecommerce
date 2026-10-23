@@ -21,6 +21,7 @@ from services.api.context.lookup import ContextLookup
 from services.api.grounding.check import check_grounding
 from services.api.grounding.config import GroundingConfig, default_config
 from services.api.grounding.result import GroundingResult
+from services.api.grounding.sign_off import with_sign_off
 from services.api.grounding.validator import GroundingContext, validate
 from services.api.llm.client import CallRecord, DraftRequest, LLMClient, Passage
 from services.api.llm.errors import LLMError, LLMInvalidOutputError
@@ -151,7 +152,11 @@ async def draft_ticket(
         # What the draft was made from is recorded from this step's own inputs, not from what
         # the client reports back.
         draft = result.value.model_copy(
-            update={"order_snapshot_id": snapshot_id, "policy_version": retrieval.policy_version}
+            update={
+                "reply_text": with_sign_off(result.value.reply_text, config.sign_off),
+                "order_snapshot_id": snapshot_id,
+                "policy_version": retrieval.policy_version,
+            }
         )
         verdict, judge_calls = await check_grounding(
             client, draft.reply_text, draft.citations, context, passages, config=config.grounding

@@ -57,7 +57,7 @@ With the all-Gemini setup the drafter and the judge are the same model family
 | G-5 | A claim the lists recognise has no source: a cause, a handling step, a product property, a courier, a capitalised name | Lists in config; allowed only if the order, the customer's message or a cited passage says it |
 | G-6 | Another customer's email or order number; an order that belongs to a different sender | Compared with the sender and the order |
 | G-7 | The reply obeys an instruction in the customer's message, or repeats five words of one | `obedience_patterns`, and word runs shared with a sentence that the injection scanner flags |
-| G-8 | The last line is not exactly the store sign-off | Exact match |
+| G-8 | The last line is not exactly the store sign-off | Exact match. The drafting step adds the sign-off itself and removes a closing the model wrote (`grounding/sign_off.py`); owner edits are checked as typed |
 | G-9 | More than one apology | `apology_patterns` |
 | G-10 | Longer than `max_reply_chars` | Length |
 
