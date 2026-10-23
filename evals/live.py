@@ -37,6 +37,7 @@ from services.api.models.judge import JudgeOutput
 from services.api.models.ticket import Classification
 from services.api.pipeline.classify import classify_ticket
 from services.api.pipeline.draft import (
+    FALLBACK_MODEL,
     GROUNDING_UNAVAILABLE_REASON,
     DraftingConfig,
     DraftStage,
@@ -173,6 +174,18 @@ def _total(calls: Sequence[CallRecord]) -> Decimal:
     return sum((c.cost_inr for c in calls), Decimal(0))
 
 
+def draft_kind(drafted: DraftStage | None) -> str | None:
+    """`llm`, `fallback_template`, or None when drafting produced nothing.
+
+    The fallback template comes back as a draft too, so the model that wrote it tells them apart.
+    """
+    if drafted is None or drafted.draft is None:
+        return None
+    if drafted.draft.model == FALLBACK_MODEL:
+        return DraftKind.FALLBACK_TEMPLATE.value
+    return "llm"
+
+
 @dataclass
 class LivePipeline:
     """A `Pipeline` for the runner. Owns the event loop its client was made on."""
@@ -282,11 +295,7 @@ class LivePipeline:
         rules = sorted(
             rule for f in (drafted.failed_attempts if drafted else []) for rule in f.rule_ids
         )
-        kind = None
-        if drafted is not None and drafted.draft is not None:
-            kind = "llm"
-        elif drafted is not None and drafted.escalation_reason is None:
-            kind = DraftKind.FALLBACK_TEMPLATE.value
+        kind = draft_kind(drafted)
         reason = escalation or (drafted.escalation_reason if drafted else None)
         provider_error = reason if is_provider_failure(reason) else None
         self.details.append(
