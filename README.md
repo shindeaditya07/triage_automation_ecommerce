@@ -148,30 +148,40 @@ edge cases through the whole pipeline and checks where it lands.
 
 ## Evaluation results
 
-**One live run so far, and it failed its own gate.** On 2026-10-23, `gemini-3.5-flash-lite` (drafter,
-judge and classifier) ran over the 78 labeled tickets: escalation recall was 0.893 against a gate of
-0.95. The full report is in [`evals/results/2026-10-23-full-5a22ad5c`](evals/results/2026-10-23-full-5a22ad5c/report.md).
+**Two live runs so far, and both fail the project's own gate on escalation recall (0.95).** Both
+used `gemini-3.5-flash-lite` as classifier, drafter and judge over the 78 labeled tickets. The first
+ran on 2026-10-23; the second on 2026-10-25 after two fixes (non-English messages are escalated by
+script, and the code adds the store's sign-off). Reports:
+[`2026-10-23-full-5a22ad5c`](evals/results/2026-10-23-full-5a22ad5c/report.md) and
+[`2026-10-25-full-313ca6f6`](evals/results/2026-10-25-full-313ca6f6/report.md).
 
-| Date | Drafter / Judge | Intent accuracy | Escalation recall | Escalation precision | Model drafts passing grounding, first try / either try | Cost / ticket |
+| Run | Intent accuracy | Escalation recall | Escalation precision | Model drafts passing grounding, first try / either try | Fell back to template | Cost / ticket |
 |---|---|---|---|---|---|---|
-| 2026-10-23 | gemini-3.5-flash-lite / gemini-3.5-flash-lite | 0.897 (0.81-0.95) | **0.893 (0.73-0.96), below the 0.95 gate** | 0.926 (0.77-0.98) | 0.552 / 0.810 (n=58), 19% fell back to the template | Rs 0.23 |
+| 2026-10-23, before the fixes | 0.897 (0.81-0.95) | **0.893 (0.73-0.96)** | 0.926 (0.77-0.98) | 0.552 / 0.810 (n=58) | 11 of 58 | Rs 0.23 |
+| 2026-10-25, after the fixes | 0.897 (0.81-0.95) | **0.893 (0.73-0.96)** | 0.926 (0.77-0.98) | 0.897 / 0.966 (n=58) | 2 of 58 | Rs 0.20 |
 
 The keyword baseline scored intent 0.795, recall 0.500 and precision 0.737 on the same tickets, so
-the model is better on every measure, but it misses the recall gate:
+the model is better on every measure. What the two runs show:
 
-- **Both non-English tickets (Hindi, Marathi) were missed.** The model classified them
-  confidently, and nothing in code detects the language.
-- **One product question the policy cannot answer** was drafted instead of marked suggestion only.
-- **The model's drafts often fail grounding.** 45% failed on the first try and 19% (11 of 58) failed
-  twice, so the standard template went out instead. The failures were 29 sign-off (G-8), 7 G-3,
-  3 G-5 and 2 G-1. The template is safe but says nothing useful, so this is the weakest part.
-- The first version of this report counted those 11 templates as model drafts. The mistake was in
-  the evaluator and is corrected; see `CORRECTION.md` in the results folder.
+- **Drafting improved a lot.** Once the code added the sign-off, first-try grounding went from 55%
+  to 90% and fallbacks from 19% to 3%. The 2 remaining fallbacks failed rule G-3 (a promise of an
+  outcome) and G-5 (an unsupported claim) twice.
+- **The fix for non-English worked.** The Hindi and Marathi tickets are no longer missed.
+- **Recall did not improve, and the same number hides different misses.** T029 and T068 (the
+  non-English tickets) were fixed, but T042 (a wholesale enquiry) and T044 (a vague "it is not
+  working") were escalated in the first run and drafted in the second, with identical prompts.
+  The model's answers vary between runs even at temperature 0, so one run is not a stable
+  measurement. T052 (a product question the policy cannot answer, which should be suggestion only)
+  was missed both times.
+- **The 0.95 gate is stricter than 28 escalation cases can support.** One ticket moves recall by
+  about 3.5 points, and both runs' intervals (0.73 to 0.96) include 0.95.
+- The first version of the first report counted the fallback template as a model draft. The
+  evaluator is fixed and that report is corrected; see `CORRECTION.md` in its folder.
 
-Limits of this run: the judge is the same model as the drafter, so grounding is checked less
+Limits of these runs: the judge is the same model as the drafter, so grounding is checked less
 independently than it appears; the policy embeddings were the fake hashed ones, so vector search
-was not measured; the data is synthetic and 28 escalation cases give a wide interval; and it is a
-single run at temperature 0.
+was not measured; the data is synthetic and written by the developer; and each run is a single
+sample.
 
 What exists today is the smoke run (2026-10-22, `smoke-622461a4`, policy v1.1). It replays recorded
 fixtures with seeded mistakes, so it tests the harness, not a model. Two of its numbers are real
