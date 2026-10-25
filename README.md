@@ -78,7 +78,8 @@ order store. The pipeline does not depend on that store: it needs an order API a
   See [ADR 0001](docs/adr/0001-concurrency.md) and [ADR 0002](docs/adr/0002-job-runner.md).
 - **Models are swappable.** Everything goes through `ModelGateway`, which adds retries, a circuit
   breaker, schema checks and cost records. A model failure escalates the ticket and never
-  produces a draft. See [ADR 0003](docs/adr/0003-llm-provider.md).
+  produces a draft. See [ADR 0003](docs/adr/0003-llm-provider.md); its last amendment records what
+  actually runs.
 - **Auth** is an owner login with argon2, short-lived tokens in httpOnly cookies, and lockout.
   See [docs/auth.md](docs/auth.md).
 
