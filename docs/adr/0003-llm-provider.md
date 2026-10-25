@@ -1,6 +1,7 @@
-# 0003. Anthropic drafts, OpenAI judges and embeds
+# 0003. Model providers: Gemini in use; Anthropic and OpenAI supported
 
-- Status: proposed (the owner confirms the provider choice before any live key is used)
+- Status: accepted, amended 2026-10-25. The original decision below (Anthropic drafts, OpenAI judges
+  and embeds) was **not** the one taken. See the amendments, and the last one for what runs now.
 - Date: 2026-10-19
 
 ## Context
@@ -97,3 +98,30 @@ Status stays proposed. The owner asked to run everything on one Gemini key.
   addresses), so use a paid-tier project for real customers. Free is fine for synthetic tickets.
 - The adapter is tested against mocked responses only. The first live classify run (`make eval`
   with real keys) is the first proof it works and may need small fixes to the request shape.
+
+## Amendment 2026-10-25: what runs, and what the live runs showed
+
+Status is now accepted. This records the choice actually made and replaces "proposed" in the
+earlier amendments.
+
+- **In use:** `gemini-3.5-flash-lite` for classifying, drafting and judging, all on one Gemini
+  key. The Anthropic and OpenAI adapters stay in the code and are tested against mocked
+  responses only; they have never been run against a live API.
+- **The judge is the same model family as the drafter.** `JUDGE_SAME_FAMILY_OK=true` is set on
+  purpose. The reason a judge should come from another provider (a model does not catch its own
+  blind spots) still applies, so grounding is checked less independently than the original
+  decision wanted. The rule-based checks G-1 to G-10 do not use a model and are unaffected. Moving
+  the judge to another provider is a settings change plus a new key and a fresh eval run; it is
+  not done yet.
+- **Proof the Gemini chat adapter works:** two full live eval runs (2026-10-23 and 2026-10-25, 78
+  tickets each) completed with no provider failures once calls were paced under the free-tier
+  limit. The reports are in `evals/results/`. They also show the cost: about Rs 0.20 per ticket,
+  with thinking tokens billed as output.
+- **Limits found:** the free tier allows about 15 requests a minute for this model and a daily
+  cap that a full run plus earlier trials appeared to use up (the third run stopped at ticket 71). Use `--calls-per-minute 10` and a paid-tier
+  key for repeated runs. A rate-limit failure now stops the run instead of producing a report
+  (see `docs/evals.md`).
+- **The model varies between runs even at temperature 0.** Two tickets escalated in one run were
+  drafted in the next with identical prompts. Single-run numbers should be read with that in mind.
+- **Not proven:** retrieval with real embeddings. The eval harness uses a fake hashed embedder, so
+  the vector search part of retrieval was not measured against a live embedding model.
