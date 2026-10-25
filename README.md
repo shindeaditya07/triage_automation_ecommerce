@@ -21,6 +21,7 @@ order store. The pipeline does not depend on that store: it needs an order API a
 - [Deployment](#deployment)
 - [Documentation](#documentation)
 - [Known limitations](#known-limitations)
+- [License](#license)
 
 ## What it does
 
@@ -253,4 +254,7 @@ For what to do when something breaks, read [docs/runbook.md](docs/runbook.md).
   DPDP Act with a qualified person before using it with real customers.
 - **Synthetic evaluation data.** See above.
 - **No data clean-up yet.** `RETENTION_DAYS` is a setting, but nothing deletes old data.
-- **No license file yet.**
+
+## License
+
+[MIT](LICENSE).
