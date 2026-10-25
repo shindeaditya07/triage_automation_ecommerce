@@ -149,6 +149,20 @@ checked". Deploys wait on `/healthz`, not `/readyz`, so a degraded instance stil
 - Never paste a database URL or API key into chat or a ticket. If something fails, copy only the
   error line.
 
+## Release smoke test
+
+`scripts/synthetic_check.py` checks a deployed API after a release: `/readyz` is 200, a signed
+email-webhook ticket is accepted (201), and sending the same message again is a duplicate (200).
+
+```bash
+SYNTHETIC_CHECK_HMAC_SECRET=<the API's HMAC_SECRET> uv run python -m scripts.synthetic_check --api-url <API URL>
+```
+
+It exits 1 and prints `FAIL: ...` if anything is wrong; a 401 on intake means the secret differs
+from the API's `HMAC_SECRET`. It does not wait for a draft, because reading a ticket needs the
+owner's login. The ticket it creates is real: reject it in the queue (subject starts
+`[synthetic check]`). The release workflow runs it for you after a production deploy.
+
 ## Restarts and shutdown
 
 The API runs as one process. On SIGTERM (a deploy or restart) it closes the database pool. A job that was mid-run is re-queued by the sweeper, and every step is safe to
