@@ -1,14 +1,15 @@
 name: Release
 
-# Runs when a version tag (v*) is pushed. The tagged commit must already be on main. The deploy
-# job uses the 'production' environment, so it waits for the required reviewer's approval click.
-# After deploying it runs the signed-intake smoke test, then publishes a GitHub Release.
+# Runs when a version tag (v*) is pushed. The tagged commit must already be on main. It builds
+# version-tagged images and publishes a GitHub Release. It deploys nothing: staging is the only
+# running environment and deploys from develop (staging.yml). Run the smoke test by hand against
+# staging (docs/runbook.md, "Release smoke test").
 on:
   push:
     tags: ["v*"]
 
 concurrency:
-  group: production-deploy
+  group: release
   cancel-in-progress: false
 
 permissions:
@@ -79,52 +80,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.mock_image }}
 
-  deploy:
-    name: Deploy to Production
-    needs: build
-    runs-on: ubuntu-latest
-    environment: production
-    env:
-      API_HOOK: ${{ secrets.RENDER_PROD_API_DEPLOY_HOOK }}
-      MOCK_HOOK: ${{ secrets.RENDER_PROD_MOCK_DEPLOY_HOOK }}
-      PROD_API_URL: ${{ vars.PROD_API_URL }}
-      SYNTHETIC_CHECK_HMAC_SECRET: ${{ secrets.SYNTHETIC_CHECK_HMAC_SECRET }}
-    steps:
-      - name: Check production configuration
-        run: |
-          missing=0
-          [ -n "$API_HOOK" ] || { echo "::error::Secret RENDER_PROD_API_DEPLOY_HOOK is not set in the 'production' environment"; missing=1; }
-          [ -n "$MOCK_HOOK" ] || { echo "::error::Secret RENDER_PROD_MOCK_DEPLOY_HOOK is not set in the 'production' environment"; missing=1; }
-          [ -n "$PROD_API_URL" ] || { echo "::error::Variable PROD_API_URL is not set in the 'production' environment"; missing=1; }
-          [ -n "$SYNTHETIC_CHECK_HMAC_SECRET" ] || { echo "::error::Secret SYNTHETIC_CHECK_HMAC_SECRET is not set in the 'production' environment"; missing=1; }
-          exit "$missing"
-
-      - name: Deploy mock store
-        env:
-          IMAGE: ${{ needs.build.outputs.mock_image }}
-        run: |
-          echo "::add-mask::$MOCK_HOOK"
-          curl -fsS -X POST "${MOCK_HOOK}&imgURL=$(jq -rn --arg u "$IMAGE" '$u|@uri')" > /dev/null
-          echo "Triggered mock-store deploy of $IMAGE"
-
-      - name: Deploy API
-        env:
-          IMAGE: ${{ needs.build.outputs.api_image }}
-        run: |
-          echo "::add-mask::$API_HOOK"
-          curl -fsS -X POST "${API_HOOK}&imgURL=$(jq -rn --arg u "$IMAGE" '$u|@uri')" > /dev/null
-          echo "Triggered API deploy of $IMAGE"
-
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - run: uv sync --frozen
-
-      - name: Release smoke test (waits for /readyz, then signed intake)
-        run: uv run python -m scripts.synthetic_check --api-url "${PROD_API_URL%/}"
-
   publish:
     name: Publish GitHub Release
-    needs: deploy
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -137,6 +95,7 @@ jobs:
         run: |
           flags=()
           case "$GITHUB_REF_NAME" in *-*) flags+=(--prerelease) ;; esac
+          repo="${GITHUB_REPOSITORY,,}"
           cat > notes.md <<'NOTES'
           ## Known limit: the recall gate is not met
 
@@ -144,6 +103,13 @@ jobs:
           28 escalation tickets (two full runs, README "Results"). This release ships with that gap,
           and with a same-family model judging drafts. Every reply is a draft a human approves
           before it is sent; nothing is sent automatically.
+
+          ## Deployment
+
+          This release is not deployed to a separate production environment. The only running
+          environment is staging, which deploys from `develop`. Images for this version are at
+          `ghcr.io/REPO/replydesk-api:TAG` and `ghcr.io/REPO/replydesk-mock-store:TAG`.
           NOTES
+          sed -i "s|REPO|${repo}|g; s|TAG|${GITHUB_REF_NAME}|g" notes.md
           gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" \
             --notes-file notes.md --generate-notes "${flags[@]}"
