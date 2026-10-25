@@ -208,15 +208,16 @@ by the developer, so results on real traffic may differ. Full runs are saved und
 | Local | `make up` | Docker Compose |
 | CI | every pull request | GitHub Actions, no live model |
 | Staging | merge to `develop` | Render, via the `Staging Deploy` workflow |
-| Production | not set up yet | |
+| Release | tag `v*` on `main` | Builds version-tagged images and publishes a GitHub Release. Nothing is deployed: staging is the only running environment. |
 
 The flow is `feature/*` to `develop` to `release/*` to `main`, by pull request. Staging runs two
 Render services (API and mock store), a managed Postgres with pgvector, and a Static Site for the
 web app. The Static Site needs a manual redeploy for web changes, and its security headers are
 typed into the Render dashboard (the same values are in `apps/web/nginx.conf`). See
 [docs/branching-and-environments.md](docs/branching-and-environments.md) and
-[docs/security-headers-and-a11y.md](docs/security-headers-and-a11y.md). A production workflow, an
-uptime monitor and a release tag are still to do.
+[docs/security-headers-and-a11y.md](docs/security-headers-and-a11y.md). There is no separate production
+environment (a decision to avoid a second paid database); the free staging database expires 30 days
+after it was created.
 
 For what to do when something breaks, read [docs/runbook.md](docs/runbook.md).
 

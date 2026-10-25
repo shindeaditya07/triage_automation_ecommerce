@@ -161,7 +161,7 @@ SYNTHETIC_CHECK_HMAC_SECRET=<the API's HMAC_SECRET> uv run python -m scripts.syn
 It exits 1 and prints `FAIL: ...` if anything is wrong; a 401 on intake means the secret differs
 from the API's `HMAC_SECRET`. It does not wait for a draft, because reading a ticket needs the
 owner's login. The ticket it creates is real: reject it in the queue (subject starts
-`[synthetic check]`). The release workflow runs it for you after a production deploy.
+`[synthetic check]`). Run it by hand against staging after a release; the release workflow does not deploy or run it.
 
 ## Restarts and shutdown
 
@@ -172,7 +172,7 @@ database tests but has not been tried against a killed container.
 
 ## Monitoring
 
-None is set up yet. Do this once production exists:
+None is set up. Staging is free and sleeps, and pinging it keeps it awake and uses free hours, so a monitor is only worth it if you add a paid, always-on environment. If you do:
 
 1. Create an external uptime monitor (UptimeRobot or Better Uptime) on `<API URL>/readyz`, every
    5 minutes, with an email alert. Alert on `readyz`, not `healthz`: only `readyz` notices a lost
