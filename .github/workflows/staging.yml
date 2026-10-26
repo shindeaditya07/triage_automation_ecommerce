@@ -1,0 +1,129 @@
+name: Staging Deploy
+
+# Runs on every merge into develop. CI has already passed on the pull request (required checks),
+# so this workflow only builds, pushes and deploys.
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+concurrency:
+  group: staging-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      api_image: ${{ steps.meta.outputs.api_image }}
+      mock_image: ${{ steps.meta.outputs.mock_image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute image names and tag
+        id: meta
+        run: |
+          repo="${GITHUB_REPOSITORY,,}"
+          tag="develop-${GITHUB_SHA}"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "api_image=${REGISTRY}/${repo}/replydesk-api:${tag}" >> "$GITHUB_OUTPUT"
+          echo "mock_image=${REGISTRY}/${repo}/replydesk-mock-store:${tag}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/api/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.api_image }}
+
+      - name: Build and push mock-store image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/mock-store/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.mock_image }}
+
+  deploy:
+    name: Deploy to Staging
+    needs: build
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      API_HOOK: ${{ secrets.RENDER_STAGING_API_DEPLOY_HOOK }}
+      MOCK_HOOK: ${{ secrets.RENDER_STAGING_MOCK_DEPLOY_HOOK }}
+      STAGING_API_URL: ${{ vars.STAGING_API_URL }}
+    steps:
+      - name: Check staging configuration
+        run: |
+          missing=0
+          [ -n "$API_HOOK" ] || { echo "::error::Secret RENDER_STAGING_API_DEPLOY_HOOK is not set in the 'staging' environment"; missing=1; }
+          [ -n "$MOCK_HOOK" ] || { echo "::error::Secret RENDER_STAGING_MOCK_DEPLOY_HOOK is not set in the 'staging' environment"; missing=1; }
+          [ -n "$STAGING_API_URL" ] || { echo "::error::Variable STAGING_API_URL is not set in the 'staging' environment"; missing=1; }
+          exit "$missing"
+
+      - name: Deploy mock store
+        env:
+          IMAGE: ${{ needs.build.outputs.mock_image }}
+        run: |
+          echo "::add-mask::$MOCK_HOOK"
+          curl -fsS -X POST "${MOCK_HOOK}&imgURL=$(jq -rn --arg u "$IMAGE" '$u|@uri')" > /dev/null
+          echo "Triggered mock-store deploy of $IMAGE"
+
+      - name: Deploy API
+        env:
+          IMAGE: ${{ needs.build.outputs.api_image }}
+        run: |
+          echo "::add-mask::$API_HOOK"
+          curl -fsS -X POST "${API_HOOK}&imgURL=$(jq -rn --arg u "$IMAGE" '$u|@uri')" > /dev/null
+          echo "Triggered API deploy of $IMAGE"
+
+      - name: Wait for staging to answer
+        # Free instances can take a few minutes to pull and start. Stay on /healthz until staging has
+        # a database and the policy index is built (feature/p2-policy-retrieval): /readyz returns
+        # 503 until both exist, so polling it earlier would fail every deploy.
+        run: |
+          url="${STAGING_API_URL%/}/healthz"
+          for i in $(seq 1 40); do
+            if curl -fsS --max-time 10 "$url" > /dev/null; then
+              echo "Staging answered at $url"
+              exit 0
+            fi
+            echo "Waiting for $url (attempt $i/40)"
+            sleep 10
+          done
+          echo "::error::Staging did not answer within about 400 seconds. Check the service logs on Render."
+          exit 1
+
+  smoke-eval:
+    name: Smoke Eval
+    needs: deploy
+    runs-on: ubuntu-latest
+    env:
+      LLM_PROVIDER: fake
+      FROZEN_NOW: "2026-10-15T12:00:00Z"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - run: make eval-smoke
