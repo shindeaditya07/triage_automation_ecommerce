@@ -208,7 +208,7 @@ by the developer, so results on real traffic may differ. Full runs are saved und
 | Local | `make up` | Docker Compose |
 | CI | every pull request | GitHub Actions, no live model |
 | Staging | merge to `develop` | Render, via the `Staging Deploy` workflow |
-| Release | tag `v*` on `main` | Builds version-tagged images and publishes a GitHub Release. Nothing is deployed: staging is the only running environment. |
+| Release | tag `v*` on `main` | Builds version-tagged images and publishes a GitHub Release. Nothing is deployed: staging is the only running environment. First release: [v1.0.0](https://github.com/shindeaditya07/triage_automation_ecommerce/releases/tag/v1.0.0). |
 
 The flow is `feature/*` to `develop` to `release/*` to `main`, by pull request. Staging runs two
 Render services (API and mock store), a managed Postgres with pgvector, and a Static Site for the
