@@ -1,0 +1,61 @@
+[project]
+name = "replydesk"
+version = "0.1.0"
+description = "ReplyDesk: grounded support triage for small e-commerce stores"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pyyaml>=6",
+    "pydantic-settings>=2.6",
+    "email-validator>=2.2",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+    "pgvector>=0.3",
+    "argon2-cffi>=25.1.0",
+    "pyjwt>=2.9",
+    "httpx>=0.27,<0.29",
+    "tzdata>=2024.1",  # Windows has no system timezone database, so Asia/Kolkata needs this
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9",
+    "pytest-cov>=6",
+    "ruff>=0.8,<0.9",
+    "mypy>=1.13,<2",
+    "pip-audit>=2.7,<3",
+    "detect-secrets>=1.5,<2",
+    "pre-commit>=4,<5",
+    "types-pyyaml>=6",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["services/api/alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "C4", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "RUF001"]  # tests use look-alike letters on purpose
+"services/api/textnorm.py" = ["RUF001"]  # the confusables map is look-alike letters
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["services/api", "evals"]
+explicit_package_bases = true
+exclude = ["services/api/alembic/"]
+
+[[tool.mypy.overrides]]
+module = ["pgvector.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+pythonpath = ["."]

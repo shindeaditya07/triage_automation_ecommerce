@@ -1,0 +1,1636 @@
+{
+  "meta": {
+    "run_id": "full-5a22ad5c",
+    "date": "2026-10-23",
+    "mode": "full",
+    "model": "gemini-3.5-flash-lite (judge gemini-3.5-flash-lite)",
+    "temperature": 0.0,
+    "prompt_hashes": {
+      "classify.md": "b22650666285b4f5cb5fef2638276cd1139e25ad7723a97ecba1a8efe107b139",
+      "draft.md": "6697d93dfa0184dc9e21dd62230d99a15b627b0900c22929f3ff6db3143fae06",
+      "judge.md": "9c700a029978388748371a36b84e3af6f1d272047e4c89d45059dc8fe2f4de34"
+    },
+    "policy_version": "1.1",
+    "policies_sha256": "fd509177b1674ee620823cd3d0654a56c8d38da67ff09ac636a0203b83f03387",
+    "dataset_sha256": {
+      "labeled.jsonl": "e52d32b35751e1bfa15f822131a09a207079d4e54495ce17f14d7bf2c34146ae",
+      "bad_drafts.jsonl": "9696eed8e7e8020c5ad81eb030dcb49429dfae36a72822b779131ce051ec35f6"
+    },
+    "tickets": 78,
+    "bad_drafts": 40
+  },
+  "live": {
+    "drafting_model": "gemini-3.5-flash-lite",
+    "judge_model": "gemini-3.5-flash-lite",
+    "setup_cost_inr": 0.0,
+    "total_cost_inr": 17.7705,
+    "cost_per_ticket_inr": 0.22782692307692307,
+    "seconds_p50": 24.11,
+    "seconds_p95": 33.41,
+    "drafts_attempted": 58,
+    "model_draft_first_try": {
+      "successes": 32,
+      "total": 58,
+      "rate": 0.5517241379310345,
+      "low": 0.42452083125844636,
+      "high": 0.6725014595221879
+    },
+    "model_draft_any_try": {
+      "successes": 47,
+      "total": 58,
+      "rate": 0.8103448275862069,
+      "low": 0.6914762612950077,
+      "high": 0.8906574833887974
+    },
+    "fallback_used": {
+      "successes": 11,
+      "total": 58,
+      "rate": 0.1896551724137931,
+      "low": 0.10934251661120264,
+      "high": 0.3085237387049922
+    },
+    "draft_escalated": {
+      "successes": 0,
+      "total": 58,
+      "rate": 0.0,
+      "low": 0.0,
+      "high": 0.062117855787202914
+    },
+    "grounding_failures_by_rule": {
+      "G-1": 2,
+      "G-3": 7,
+      "G-5": 3,
+      "G-8": 29
+    },
+    "classification_escalated": [],
+    "provider_failures": {},
+    "tickets": [
+      {
+        "ticket_id": "T001",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2806,
+        "seconds": 24.95
+      },
+      {
+        "ticket_id": "T002",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 2,
+        "failed_rules": [
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.4173,
+        "seconds": 29.94
+      },
+      {
+        "ticket_id": "T003",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2495,
+        "seconds": 25.66
+      },
+      {
+        "ticket_id": "T004",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2844,
+        "seconds": 29.16
+      },
+      {
+        "ticket_id": "T005",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 2,
+        "failed_rules": [
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.3566,
+        "seconds": 32.38
+      },
+      {
+        "ticket_id": "T006",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2327,
+        "seconds": 30.42
+      },
+      {
+        "ticket_id": "T007",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2402,
+        "seconds": 37.86
+      },
+      {
+        "ticket_id": "T008",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "fallback_template",
+        "attempt": 3,
+        "failed_rules": [
+          "G-3",
+          "G-3",
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.3694,
+        "seconds": 30.97
+      },
+      {
+        "ticket_id": "T009",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 2,
+        "failed_rules": [
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.3999,
+        "seconds": 42.59
+      },
+      {
+        "ticket_id": "T010",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "fallback_template",
+        "attempt": 3,
+        "failed_rules": [
+          "G-8",
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.3074,
+        "seconds": 23.05
+      },
+      {
+        "ticket_id": "T011",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "fallback_template",
+        "attempt": 3,
+        "failed_rules": [
+          "G-8",
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.355,
+        "seconds": 33.41
+      },
+      {
+        "ticket_id": "T012",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "fallback_template",
+        "attempt": 3,
+        "failed_rules": [
+          "G-1",
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.3743,
+        "seconds": 33.48
+      },
+      {
+        "ticket_id": "T013",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 2,
+        "failed_rules": [
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.4464,
+        "seconds": 27.38
+      },
+      {
+        "ticket_id": "T014",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2983,
+        "seconds": 24.28
+      },
+      {
+        "ticket_id": "T015",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 2,
+        "failed_rules": [
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.3759,
+        "seconds": 29.61
+      },
+      {
+        "ticket_id": "T016",
+        "classified": true,
+        "reached_drafting": false,
+        "drafted": null,
+        "attempt": null,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.0455,
+        "seconds": 6.08
+      },
+      {
+        "ticket_id": "T017",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2162,
+        "seconds": 23.73
+      },
+      {
+        "ticket_id": "T018",
+        "classified": true,
+        "reached_drafting": false,
+        "drafted": null,
+        "attempt": null,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.0451,
+        "seconds": 6.55
+      },
+      {
+        "ticket_id": "T019",
+        "classified": true,
+        "reached_drafting": false,
+        "drafted": null,
+        "attempt": null,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.045,
+        "seconds": 5.5
+      },
+      {
+        "ticket_id": "T020",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.1665,
+        "seconds": 23.89
+      },
+      {
+        "ticket_id": "T021",
+        "classified": true,
+        "reached_drafting": false,
+        "drafted": null,
+        "attempt": null,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.049,
+        "seconds": 6.8
+      },
+      {
+        "ticket_id": "T022",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2337,
+        "seconds": 23.62
+      },
+      {
+        "ticket_id": "T023",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 2,
+        "failed_rules": [
+          "G-1"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.3948,
+        "seconds": 29.92
+      },
+      {
+        "ticket_id": "T024",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "fallback_template",
+        "attempt": 3,
+        "failed_rules": [
+          "G-8",
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.3499,
+        "seconds": 24.52
+      },
+      {
+        "ticket_id": "T025",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 2,
+        "failed_rules": [
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.3922,
+        "seconds": 29.53
+      },
+      {
+        "ticket_id": "T026",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2726,
+        "seconds": 23.91
+      },
+      {
+        "ticket_id": "T027",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.273,
+        "seconds": 24.22
+      },
+      {
+        "ticket_id": "T028",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "fallback_template",
+        "attempt": 3,
+        "failed_rules": [
+          "G-3",
+          "G-5"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.4072,
+        "seconds": 30.02
+      },
+      {
+        "ticket_id": "T029",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2675,
+        "seconds": 23.72
+      },
+      {
+        "ticket_id": "T030",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2911,
+        "seconds": 24.09
+      },
+      {
+        "ticket_id": "T031",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2579,
+        "seconds": 24.14
+      },
+      {
+        "ticket_id": "T032",
+        "classified": true,
+        "reached_drafting": false,
+        "drafted": null,
+        "attempt": null,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.0437,
+        "seconds": 5.84
+      },
+      {
+        "ticket_id": "T033",
+        "classified": true,
+        "reached_drafting": false,
+        "drafted": null,
+        "attempt": null,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.0469,
+        "seconds": 6.02
+      },
+      {
+        "ticket_id": "T034",
+        "classified": true,
+        "reached_drafting": false,
+        "drafted": null,
+        "attempt": null,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.0488,
+        "seconds": 5.89
+      },
+      {
+        "ticket_id": "T035",
+        "classified": true,
+        "reached_drafting": false,
+        "drafted": null,
+        "attempt": null,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.0484,
+        "seconds": 6.66
+      },
+      {
+        "ticket_id": "T036",
+        "classified": true,
+        "reached_drafting": false,
+        "drafted": null,
+        "attempt": null,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.0444,
+        "seconds": 5.62
+      },
+      {
+        "ticket_id": "T037",
+        "classified": true,
+        "reached_drafting": false,
+        "drafted": null,
+        "attempt": null,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.0472,
+        "seconds": 5.84
+      },
+      {
+        "ticket_id": "T038",
+        "classified": true,
+        "reached_drafting": false,
+        "drafted": null,
+        "attempt": null,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.0478,
+        "seconds": 6.02
+      },
+      {
+        "ticket_id": "T039",
+        "classified": true,
+        "reached_drafting": false,
+        "drafted": null,
+        "attempt": null,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.0438,
+        "seconds": 5.97
+      },
+      {
+        "ticket_id": "T040",
+        "classified": true,
+        "reached_drafting": false,
+        "drafted": null,
+        "attempt": null,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.0491,
+        "seconds": 5.72
+      },
+      {
+        "ticket_id": "T041",
+        "classified": true,
+        "reached_drafting": false,
+        "drafted": null,
+        "attempt": null,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.0487,
+        "seconds": 6.36
+      },
+      {
+        "ticket_id": "T042",
+        "classified": true,
+        "reached_drafting": false,
+        "drafted": null,
+        "attempt": null,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.0446,
+        "seconds": 6.34
+      },
+      {
+        "ticket_id": "T043",
+        "classified": true,
+        "reached_drafting": false,
+        "drafted": null,
+        "attempt": null,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.0441,
+        "seconds": 6.36
+      },
+      {
+        "ticket_id": "T044",
+        "classified": true,
+        "reached_drafting": false,
+        "drafted": null,
+        "attempt": null,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.045,
+        "seconds": 5.05
+      },
+      {
+        "ticket_id": "T045",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.27,
+        "seconds": 24.03
+      },
+      {
+        "ticket_id": "T046",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2815,
+        "seconds": 24.16
+      },
+      {
+        "ticket_id": "T047",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.3329,
+        "seconds": 24.16
+      },
+      {
+        "ticket_id": "T048",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.179,
+        "seconds": 23.7
+      },
+      {
+        "ticket_id": "T049",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.1828,
+        "seconds": 23.94
+      },
+      {
+        "ticket_id": "T050",
+        "classified": true,
+        "reached_drafting": false,
+        "drafted": null,
+        "attempt": null,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.0442,
+        "seconds": 6.12
+      },
+      {
+        "ticket_id": "T051",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "fallback_template",
+        "attempt": 3,
+        "failed_rules": [
+          "G-5",
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2876,
+        "seconds": 30.38
+      },
+      {
+        "ticket_id": "T052",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 2,
+        "failed_rules": [
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2369,
+        "seconds": 29.39
+      },
+      {
+        "ticket_id": "T053",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "fallback_template",
+        "attempt": 3,
+        "failed_rules": [
+          "G-3",
+          "G-3",
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2216,
+        "seconds": 24.31
+      },
+      {
+        "ticket_id": "T054",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 2,
+        "failed_rules": [
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.228,
+        "seconds": 30.09
+      },
+      {
+        "ticket_id": "T055",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.1693,
+        "seconds": 23.86
+      },
+      {
+        "ticket_id": "T056",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 2,
+        "failed_rules": [
+          "G-5"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2753,
+        "seconds": 30.14
+      },
+      {
+        "ticket_id": "T057",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2232,
+        "seconds": 23.67
+      },
+      {
+        "ticket_id": "T058",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.1813,
+        "seconds": 23.98
+      },
+      {
+        "ticket_id": "T059",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.1818,
+        "seconds": 24.11
+      },
+      {
+        "ticket_id": "T060",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2411,
+        "seconds": 24.06
+      },
+      {
+        "ticket_id": "T061",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2493,
+        "seconds": 24.36
+      },
+      {
+        "ticket_id": "T062",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2047,
+        "seconds": 23.67
+      },
+      {
+        "ticket_id": "T063",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 2,
+        "failed_rules": [
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.3859,
+        "seconds": 29.73
+      },
+      {
+        "ticket_id": "T064",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "fallback_template",
+        "attempt": 3,
+        "failed_rules": [
+          "G-3",
+          "G-3",
+          "G-8",
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2953,
+        "seconds": 24.59
+      },
+      {
+        "ticket_id": "T065",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 2,
+        "failed_rules": [
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.3911,
+        "seconds": 29.94
+      },
+      {
+        "ticket_id": "T066",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "fallback_template",
+        "attempt": 3,
+        "failed_rules": [
+          "G-8",
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.3172,
+        "seconds": 24.3
+      },
+      {
+        "ticket_id": "T067",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 2,
+        "failed_rules": [
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.4583,
+        "seconds": 29.86
+      },
+      {
+        "ticket_id": "T068",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.1711,
+        "seconds": 23.36
+      },
+      {
+        "ticket_id": "T069",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2506,
+        "seconds": 24.17
+      },
+      {
+        "ticket_id": "T070",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.216,
+        "seconds": 24.12
+      },
+      {
+        "ticket_id": "T071",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2825,
+        "seconds": 23.8
+      },
+      {
+        "ticket_id": "T072",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2795,
+        "seconds": 24.36
+      },
+      {
+        "ticket_id": "T073",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 2,
+        "failed_rules": [
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.4117,
+        "seconds": 29.69
+      },
+      {
+        "ticket_id": "T074",
+        "classified": true,
+        "reached_drafting": false,
+        "drafted": null,
+        "attempt": null,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.0449,
+        "seconds": 6.19
+      },
+      {
+        "ticket_id": "T075",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "fallback_template",
+        "attempt": 3,
+        "failed_rules": [
+          "G-8",
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.3052,
+        "seconds": 24.14
+      },
+      {
+        "ticket_id": "T076",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 1,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.2093,
+        "seconds": 23.56
+      },
+      {
+        "ticket_id": "T077",
+        "classified": true,
+        "reached_drafting": true,
+        "drafted": "llm",
+        "attempt": 2,
+        "failed_rules": [
+          "G-8"
+        ],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.4182,
+        "seconds": 30.09
+      },
+      {
+        "ticket_id": "T078",
+        "classified": true,
+        "reached_drafting": false,
+        "drafted": null,
+        "attempt": null,
+        "failed_rules": [],
+        "draft_escalation": null,
+        "provider_error": null,
+        "cost_inr": 0.0456,
+        "seconds": 5.95
+      }
+    ]
+  },
+  "problems": [],
+  "systems": [
+    {
+      "system": "live (gemini-3.5-flash-lite)",
+      "gated": true,
+      "classification": {
+        "per_intent": [
+          {
+            "intent": "order_status",
+            "support": 25,
+            "precision": {
+              "successes": 23,
+              "total": 23,
+              "rate": 1.0,
+              "low": 0.8568833815495731,
+              "high": 1.0
+            },
+            "recall": {
+              "successes": 23,
+              "total": 25,
+              "rate": 0.92,
+              "low": 0.7503389104960468,
+              "high": 0.9777795987151524
+            }
+          },
+          {
+            "intent": "refund",
+            "support": 15,
+            "precision": {
+              "successes": 14,
+              "total": 15,
+              "rate": 0.9333333333333333,
+              "low": 0.7018347012621998,
+              "high": 0.9881331045067315
+            },
+            "recall": {
+              "successes": 14,
+              "total": 15,
+              "rate": 0.9333333333333333,
+              "low": 0.7018347012621998,
+              "high": 0.9881331045067315
+            }
+          },
+          {
+            "intent": "return",
+            "support": 6,
+            "precision": {
+              "successes": 5,
+              "total": 6,
+              "rate": 0.8333333333333334,
+              "low": 0.43649717781352987,
+              "high": 0.9699466302516935
+            },
+            "recall": {
+              "successes": 5,
+              "total": 6,
+              "rate": 0.8333333333333334,
+              "low": 0.43649717781352987,
+              "high": 0.9699466302516935
+            }
+          },
+          {
+            "intent": "damaged_item",
+            "support": 7,
+            "precision": {
+              "successes": 7,
+              "total": 9,
+              "rate": 0.7777777777777778,
+              "low": 0.45258896910698887,
+              "high": 0.9367748928821533
+            },
+            "recall": {
+              "successes": 7,
+              "total": 7,
+              "rate": 1.0,
+              "low": 0.6456695649333126,
+              "high": 1.0
+            }
+          },
+          {
+            "intent": "product_question",
+            "support": 8,
+            "precision": {
+              "successes": 7,
+              "total": 8,
+              "rate": 0.875,
+              "low": 0.5291118177871464,
+              "high": 0.9775825085499433
+            },
+            "recall": {
+              "successes": 7,
+              "total": 8,
+              "rate": 0.875,
+              "low": 0.5291118177871464,
+              "high": 0.9775825085499433
+            }
+          },
+          {
+            "intent": "cancellation",
+            "support": 4,
+            "precision": {
+              "successes": 4,
+              "total": 4,
+              "rate": 1.0,
+              "low": 0.5101091635454027,
+              "high": 1.0
+            },
+            "recall": {
+              "successes": 4,
+              "total": 4,
+              "rate": 1.0,
+              "low": 0.5101091635454027,
+              "high": 1.0
+            }
+          },
+          {
+            "intent": "address_change",
+            "support": 2,
+            "precision": {
+              "successes": 2,
+              "total": 2,
+              "rate": 1.0,
+              "low": 0.34238022750665303,
+              "high": 1.0
+            },
+            "recall": {
+              "successes": 2,
+              "total": 2,
+              "rate": 1.0,
+              "low": 0.34238022750665303,
+              "high": 1.0
+            }
+          },
+          {
+            "intent": "payment",
+            "support": 5,
+            "precision": {
+              "successes": 4,
+              "total": 5,
+              "rate": 0.8,
+              "low": 0.37553462976252533,
+              "high": 0.9637758913675698
+            },
+            "recall": {
+              "successes": 4,
+              "total": 5,
+              "rate": 0.8,
+              "low": 0.37553462976252533,
+              "high": 0.9637758913675698
+            }
+          },
+          {
+            "intent": "warranty",
+            "support": 2,
+            "precision": {
+              "successes": 1,
+              "total": 1,
+              "rate": 1.0,
+              "low": 0.20654931437723745,
+              "high": 1.0
+            },
+            "recall": {
+              "successes": 1,
+              "total": 2,
+              "rate": 0.5,
+              "low": 0.09453120573423074,
+              "high": 0.9054687942657693
+            }
+          },
+          {
+            "intent": "other",
+            "support": 4,
+            "precision": {
+              "successes": 3,
+              "total": 5,
+              "rate": 0.6,
+              "low": 0.2307242812760128,
+              "high": 0.882379225767352
+            },
+            "recall": {
+              "successes": 3,
+              "total": 4,
+              "rate": 0.75,
+              "low": 0.30064184258240184,
+              "high": 0.9544127391902995
+            }
+          }
+        ],
+        "accuracy": {
+          "successes": 70,
+          "total": 78,
+          "rate": 0.8974358974358975,
+          "low": 0.8104556014759761,
+          "high": 0.9471066523425362
+        },
+        "urgency_accuracy": {
+          "successes": 64,
+          "total": 78,
+          "rate": 0.8205128205128205,
+          "low": 0.7209764606558008,
+          "high": 0.8899608408107412
+        }
+      },
+      "escalation": {
+        "recall": {
+          "successes": 25,
+          "total": 28,
+          "rate": 0.8928571428571429,
+          "low": 0.7280414845132785,
+          "high": 0.9628816331707
+        },
+        "precision": {
+          "successes": 25,
+          "total": 27,
+          "rate": 0.9259259259259259,
+          "low": 0.7663040731697686,
+          "high": 0.9794453459390113
+        },
+        "no_draft_recall": {
+          "successes": 19,
+          "total": 21,
+          "rate": 0.9047619047619048,
+          "low": 0.7108586092608176,
+          "high": 0.9734812325619255
+        },
+        "outcome_accuracy": {
+          "successes": 73,
+          "total": 78,
+          "rate": 0.9358974358974359,
+          "low": 0.8585640453682883,
+          "high": 0.9723106846262091
+        },
+        "missed": [
+          "T029",
+          "T052",
+          "T068"
+        ],
+        "false_escalations": [
+          "T050",
+          "T067"
+        ]
+      }
+    },
+    {
+      "system": "keyword-baseline",
+      "gated": false,
+      "classification": {
+        "per_intent": [
+          {
+            "intent": "order_status",
+            "support": 25,
+            "precision": {
+              "successes": 16,
+              "total": 16,
+              "rate": 1.0,
+              "low": 0.8063923194655637,
+              "high": 1.0
+            },
+            "recall": {
+              "successes": 16,
+              "total": 25,
+              "rate": 0.64,
+              "low": 0.44518497748164865,
+              "high": 0.7975211922554178
+            }
+          },
+          {
+            "intent": "refund",
+            "support": 15,
+            "precision": {
+              "successes": 14,
+              "total": 15,
+              "rate": 0.9333333333333333,
+              "low": 0.7018347012621998,
+              "high": 0.9881331045067315
+            },
+            "recall": {
+              "successes": 14,
+              "total": 15,
+              "rate": 0.9333333333333333,
+              "low": 0.7018347012621998,
+              "high": 0.9881331045067315
+            }
+          },
+          {
+            "intent": "return",
+            "support": 6,
+            "precision": {
+              "successes": 5,
+              "total": 6,
+              "rate": 0.8333333333333334,
+              "low": 0.43649717781352987,
+              "high": 0.9699466302516935
+            },
+            "recall": {
+              "successes": 5,
+              "total": 6,
+              "rate": 0.8333333333333334,
+              "low": 0.43649717781352987,
+              "high": 0.9699466302516935
+            }
+          },
+          {
+            "intent": "damaged_item",
+            "support": 7,
+            "precision": {
+              "successes": 6,
+              "total": 6,
+              "rate": 1.0,
+              "low": 0.6096657120978346,
+              "high": 1.0
+            },
+            "recall": {
+              "successes": 6,
+              "total": 7,
+              "rate": 0.8571428571428571,
+              "low": 0.4868721707256811,
+              "high": 0.9743203756552565
+            }
+          },
+          {
+            "intent": "product_question",
+            "support": 8,
+            "precision": {
+              "successes": 7,
+              "total": 7,
+              "rate": 1.0,
+              "low": 0.6456695649333126,
+              "high": 1.0
+            },
+            "recall": {
+              "successes": 7,
+              "total": 8,
+              "rate": 0.875,
+              "low": 0.5291118177871464,
+              "high": 0.9775825085499433
+            }
+          },
+          {
+            "intent": "cancellation",
+            "support": 4,
+            "precision": {
+              "successes": 3,
+              "total": 4,
+              "rate": 0.75,
+              "low": 0.30064184258240184,
+              "high": 0.9544127391902995
+            },
+            "recall": {
+              "successes": 3,
+              "total": 4,
+              "rate": 0.75,
+              "low": 0.30064184258240184,
+              "high": 0.9544127391902995
+            }
+          },
+          {
+            "intent": "address_change",
+            "support": 2,
+            "precision": {
+              "successes": 2,
+              "total": 2,
+              "rate": 1.0,
+              "low": 0.34238022750665303,
+              "high": 1.0
+            },
+            "recall": {
+              "successes": 2,
+              "total": 2,
+              "rate": 1.0,
+              "low": 0.34238022750665303,
+              "high": 1.0
+            }
+          },
+          {
+            "intent": "payment",
+            "support": 5,
+            "precision": {
+              "successes": 4,
+              "total": 5,
+              "rate": 0.8,
+              "low": 0.37553462976252533,
+              "high": 0.9637758913675698
+            },
+            "recall": {
+              "successes": 4,
+              "total": 5,
+              "rate": 0.8,
+              "low": 0.37553462976252533,
+              "high": 0.9637758913675698
+            }
+          },
+          {
+            "intent": "warranty",
+            "support": 2,
+            "precision": {
+              "successes": 1,
+              "total": 1,
+              "rate": 1.0,
+              "low": 0.20654931437723745,
+              "high": 1.0
+            },
+            "recall": {
+              "successes": 1,
+              "total": 2,
+              "rate": 0.5,
+              "low": 0.09453120573423074,
+              "high": 0.9054687942657693
+            }
+          },
+          {
+            "intent": "other",
+            "support": 4,
+            "precision": {
+              "successes": 4,
+              "total": 16,
+              "rate": 0.25,
+              "low": 0.10182067491213048,
+              "high": 0.49498316535508774
+            },
+            "recall": {
+              "successes": 4,
+              "total": 4,
+              "rate": 1.0,
+              "low": 0.5101091635454027,
+              "high": 1.0
+            }
+          }
+        ],
+        "accuracy": {
+          "successes": 62,
+          "total": 78,
+          "rate": 0.7948717948717948,
+          "low": 0.692460269547539,
+          "high": 0.8696020478016797
+        },
+        "urgency_accuracy": {
+          "successes": 47,
+          "total": 78,
+          "rate": 0.6025641025641025,
+          "low": 0.4916185829131174,
+          "high": 0.7038813535561762
+        }
+      },
+      "escalation": {
+        "recall": {
+          "successes": 14,
+          "total": 28,
+          "rate": 0.5,
+          "low": 0.32633127457293465,
+          "high": 0.6736687254270654
+        },
+        "precision": {
+          "successes": 14,
+          "total": 19,
+          "rate": 0.7368421052631579,
+          "low": 0.5120844910218489,
+          "high": 0.8819358765321748
+        },
+        "no_draft_recall": {
+          "successes": 14,
+          "total": 21,
+          "rate": 0.6666666666666666,
+          "low": 0.4537345197425524,
+          "high": 0.8280524739491653
+        },
+        "outcome_accuracy": {
+          "successes": 59,
+          "total": 78,
+          "rate": 0.7564102564102564,
+          "low": 0.6506022263099065,
+          "high": 0.8381476148633271
+        },
+        "missed": [
+          "T002",
+          "T010",
+          "T011",
+          "T016",
+          "T018",
+          "T038",
+          "T039",
+          "T040",
+          "T041",
+          "T052",
+          "T064",
+          "T073",
+          "T074",
+          "T075"
+        ],
+        "false_escalations": [
+          "T027",
+          "T062",
+          "T065",
+          "T067",
+          "T077"
+        ]
+      }
+    }
+  ],
+  "grounding": {
+    "status": "evaluated",
+    "detail": "40 of 40 bad drafts caught; 0 of 24 good drafts wrongly blocked",
+    "metrics": {
+      "caught": {
+        "successes": 40,
+        "total": 40,
+        "rate": 1.0,
+        "low": 0.9123783988027135,
+        "high": 1.0
+      },
+      "rule_match": {
+        "successes": 40,
+        "total": 40,
+        "rate": 1.0,
+        "low": 0.9123783988027135,
+        "high": 1.0
+      },
+      "missed": []
+    },
+    "false_blocks": {}
+  },
+  "retrieval": {
+    "status": "evaluated",
+    "detail": "Embeddings in this run are the fake client's hashed bag-of-words vectors: the intent-required passages are a real measurement, the vector search is a harness check.",
+    "metrics": {
+      "tickets": 56,
+      "passages": {
+        "successes": 98,
+        "total": 105,
+        "rate": 0.9333333333333333,
+        "low": 0.8687443513174588,
+        "high": 0.9673341153439793
+      },
+      "tickets_complete": {
+        "successes": 49,
+        "total": 56,
+        "rate": 0.875,
+        "low": 0.7637452344180986,
+        "high": 0.9381093130428289
+      },
+      "passages_by_intent_only": {
+        "successes": 85,
+        "total": 105,
+        "rate": 0.8095238095238095,
+        "low": 0.7240239056411013,
+        "high": 0.8731749991170688
+      },
+      "mean_retrieved": 9.214285714285714,
+      "missed": [
+        "T007",
+        "T013",
+        "T020",
+        "T030",
+        "T046",
+        "T070",
+        "T073"
+      ]
+    }
+  },
+  "passed": false,
+  "failures": [
+    "live (gemini-3.5-flash-lite): escalation recall 0.8928571428571429 is below 0.95"
+  ]
+}

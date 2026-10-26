@@ -1,0 +1,174 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: [develop, main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint-backend:
+    name: Lint (Backend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+
+  lint-frontend:
+    name: Lint (Frontend)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+
+  api-types:
+    name: API Types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: uv sync --frozen
+      - run: npm ci
+        working-directory: apps/web
+      # The frontend's types are generated from the API; fail if the committed file is stale.
+      - run: make check-types
+
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - run: git ls-files -z | xargs -0 uv run detect-secrets-hook --baseline .secrets.baseline
+
+  test-backend:
+    name: Test (Backend)
+    runs-on: ubuntu-latest
+    env:
+      LLM_PROVIDER: fake
+      ENVIRONMENT: ci
+      FROZEN_NOW: "2026-10-15T12:00:00Z"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - run: uv run pytest --cov=services --cov-report=term-missing
+      - name: Grounding coverage gate (95% branch, spec 13.4)
+        run: uv run pytest tests/grounding -q --cov=services/api/grounding --cov-branch --cov-fail-under=95
+
+  test-frontend:
+    name: Test (Frontend)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  migration-check:
+    name: Migration Check
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.0-pg16
+        env:
+          POSTGRES_USER: replydesk
+          POSTGRES_PASSWORD: replydesk
+          POSTGRES_DB: replydesk_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U replydesk -d replydesk_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://replydesk:replydesk@localhost:5432/replydesk_test
+      TEST_DATABASE_URL: postgresql+asyncpg://replydesk:replydesk@localhost:5432/replydesk_test
+      REQUIRE_DB: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - name: Upgrade, downgrade, upgrade
+        run: |
+          uv run alembic upgrade head
+          uv run alembic downgrade base
+          uv run alembic upgrade head
+      - name: Schema and constraint tests
+        run: uv run pytest tests/db
+
+  eval-smoke:
+    name: Eval Smoke
+    runs-on: ubuntu-latest
+    env:
+      LLM_PROVIDER: fake
+      FROZEN_NOW: "2026-10-15T12:00:00Z"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - run: make eval-smoke
+
+  policy-check:
+    name: Policy Integrity Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - run: make policy-check
+
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen
+      - run: uv run pip-audit
+      - run: npm audit
+        working-directory: apps/web
+
+  container-build:
+    name: Container Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f services/api/Dockerfile -t replydesk-api:ci .
+      - run: docker build -f services/mock-store/Dockerfile -t replydesk-mock-store:ci .
+      - run: docker build -t replydesk-web:ci apps/web

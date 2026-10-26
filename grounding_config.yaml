@@ -1,0 +1,157 @@
+# The maintained lists behind the grounding validator (docs/grounding.md). The rules are code; what
+# counts as a promise, an apology or an unsupported claim is data, so it can be reviewed, extended
+# and tested without touching the validator. Every pattern is matched case-insensitively against
+# the reply with curly quotes straightened and whitespace collapsed.
+
+# G-10: a reply longer than this is rejected. The drafter is told to be brief.
+max_reply_chars: 1500
+
+# G-3 (TON-9.2): language that promises an outcome, or offers compensation. Regular expressions.
+commitment_patterns:
+  - "\\bwe(?:'ll| will| shall)\\s+(?:be\\s+)?(?:refund|replac|reship|re-ship|credit|compensat|reimburs)"
+  - "\\bwe(?:'ll| will| shall)\\s+(?:send|ship|dispatch|deliver|issue|process)\\b[^.!?]{0,30}\\b(?:replacement|refund|new one|another one)"
+  - "\\bwe(?:'ll| will| shall)\\s+(?:deliver|dispatch|ship|send)\\b[^.!?]{0,15}\\bby\\b"
+  - "\\bi(?:'ll| will)\\s+(?:refund|replace|reship|credit|compensate|reimburse|issue)"
+  - "\\byou(?:'ll| will)\\s+(?:get|receive|be given|be issued)\\s+(?:a |an |your |the )?(?:full |complete )?(?:refund|replacement|credit|reimbursement|compensation|store credit)"
+  - "\\byou(?:'ll| will)\\s+(?:receive|get)\\b[^.!?]{0,40}\\bby\\b"
+  - "\\byou(?:'ll| will)\\s+be\\s+(?:refunded|reimbursed|compensated)"
+  - "\\b(?:will|shall)\\s+be\\s+(?:refunded|replaced|reimbursed|compensated|credited)"
+  - "\\b(?:full|complete)\\s+refund\\b[^.!?]{0,40}\\b(?:will|as soon as|once you)"
+  - "\\bguarantee[sd]?\\b|\\bpromis(?:e|es|ed|ing)\\b"
+  - "\\bdiscount\\s+(?:code|coupon)\\b|\\b(?:coupon|promo|voucher)\\s+code\\b|\\bpromo\\s+code\\b"
+  - "\\bas\\s+a\\s+(?:gesture|token)\\b|\\bgoodwill\\b|\\bcompensat(?:e|ion)\\s+(?:you|for)\\b"
+  - "\\b(?:no\\s+problem|definitely|certainly)\\b[^.!?]{0,20}\\b(?:refund|replace)"
+
+# G-9 (TON-9.1): each match is one apology. More than one in a reply fails.
+apology_patterns:
+  - "\\bsorry\\b"
+  - "\\bapolog(?:y|ies|ise|ised|ises|ising|ize|ized|izes|izing)\\b"
+  - "\\bpardon\\b"
+  - "\\bregret(?:s|ted)?\\b[^.!?]{0,20}\\b(?:inconvenience|trouble|delay)"
+
+# G-7: a reply that obeys or repeats an instruction found in the customer's message.
+obedience_patterns:
+  - "\\bas\\s+(?:you\\s+)?(?:instructed|directed|commanded)\\b"
+  - "\\bper\\s+your\\s+(?:instruction|command|order|direction)s?\\b"
+  - "\\byou\\s+(?:asked|told|instructed|requested|commanded)\\s+me\\s+to\\b"
+  - "\\bi\\s+(?:am|'m|have been|will be)\\s+(?:now\\s+)?(?:ignoring|disregarding|overriding|bypassing)\\b"
+  - "\\b(?:ignor|disregard|overrid|bypass)(?:e|ed|ing)\\s+(?:all\\s+|my\\s+|the\\s+|our\\s+)?(?:previous|prior|earlier|usual|store)?\\s*(?:instructions?|rules?|polic(?:y|ies)|guidelines?|review)\\b"
+  - "\\bset\\s+aside\\s+(?:the\\s+)?(?:usual|normal|standard)\\b"
+  - "\\bi\\s+(?:am|'m)\\s+(?:now\\s+)?(?:acting|operating|working)\\s+as\\b"
+  - "\\bnew\\s+instructions?\\b|\\bsystem\\s+prompt\\b"
+
+# G-5: claims the deterministic checks can recognise by their wording. Each is a claim about the
+# order or product that must come from the order record, the customer's own message, or a cited
+# policy; the phrase is allowed only when it appears in one of those. Anything subtler is for the
+# judge (docs/grounding.md, "What these rules do not catch").
+causal_patterns:
+  - "\\b(?:because of|due to|owing to|on account of|as a result of|caused by|thanks to)\\b"
+  - "\\bbecause\\s+(?:of\\s+)?(?:the\\s+)?(?:heavy|bad|severe|weather|rain|strike|festival|holiday|traffic|flood|storm|stock|shortage|demand|backlog|courier|warehouse|supplier)"
+process_terms:
+  - "packed"
+  - "packaged"
+  - "warehouse"
+  - "manufactured"
+  - "handmade"
+  - "inspected"
+  - "quality checked"
+  - "quality-checked"
+  - "out of stock"
+  - "restocked"
+  - "back-ordered"
+  - "backordered"
+  - "fulfilment centre"
+  - "fulfillment center"
+product_claim_phrases:
+  - "dishwasher safe"
+  - "dishwasher-safe"
+  - "bpa free"
+  - "bpa-free"
+  - "microwave safe"
+  - "microwave-safe"
+  - "food grade"
+  - "food-grade"
+  - "non-stick"
+  - "nonstick"
+  - "waterproof"
+  - "heat resistant"
+  - "heat-resistant"
+  - "eco-friendly"
+  - "eco friendly"
+  - "premium"
+  - "lifetime"
+  - "warranty"
+  - "authentic"
+  - "genuine"
+couriers:
+  - "bluedart"
+  - "blue dart"
+  - "delhivery"
+  - "dtdc"
+  - "ecom express"
+  - "xpressbees"
+  - "shadowfax"
+  - "india post"
+  - "speed post"
+  - "fedex"
+  - "dhl"
+  - "ups"
+  - "amazon logistics"
+  - "ekart"
+  - "gati"
+  - "professional couriers"
+# Capitalised words that may appear mid-sentence without being in the order, the message or a cited
+# policy: the store's own wording, days and months, payment and shipping terms.
+allowed_names:
+  - "I"
+  - "OK"
+  - "COD"
+  - "UPI"
+  - "IST"
+  - "GST"
+  - "PIN"
+  - "EMI"
+  - "RD"
+  - "TRK"
+  - "INR"
+  - "Rs"
+  - "India"
+  - "Indian"
+  - "Monday"
+  - "Tuesday"
+  - "Wednesday"
+  - "Thursday"
+  - "Friday"
+  - "Saturday"
+  - "Sunday"
+  - "January"
+  - "February"
+  - "March"
+  - "April"
+  - "May"
+  - "June"
+  - "July"
+  - "August"
+  - "September"
+  - "October"
+  - "November"
+  - "December"
+
+# G-1 and G-6: the shape of the store's order numbers and tracking numbers.
+order_id_patterns:
+  - "\\bRD-?\\d{4,}\\b"
+tracking_patterns:
+  - "\\bTRK\\d{6,}\\b"
+
+# G-6: addresses the store itself may mention (its own support address).
+allowed_emails: []
+
+# Used when a second draft also fails the grounding check (spec 13.3). It states no fact and makes
+# no promise, so it cannot fail the rules itself; the pipeline checks that before using it.
+# {sign_off} is replaced with the store's sign-off and must be the last thing in the text.
+fallback_template: |
+  Hello,
+
+  Thank you for getting in touch. We have received your message, and the store owner will read it and reply to you personally.
+
+  {sign_off}
