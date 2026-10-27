@@ -150,20 +150,25 @@ edge cases through the whole pipeline and checks where it lands.
 
 ## Evaluation results
 
-**Two live runs so far, and both fail the project's own gate on escalation recall (0.95).** Both
-used `gemini-3.5-flash-lite` as classifier, drafter and judge over the 78 labeled tickets. The first
-ran on 2026-10-23; the second on 2026-10-25 after two fixes (non-English messages are escalated by
-script, and the code adds the store's sign-off). Reports:
+**Three live runs so far. Two fail the project's own gate on escalation recall (0.95); the third
+passes it by one ticket, which is not enough to call the gate met.** All used
+`gemini-3.5-flash-lite` as classifier, drafter and judge over the 78 labeled tickets. The first ran
+on 2026-10-23; the second on 2026-10-25 after two fixes (non-English messages are escalated by
+script, and the code adds the store's sign-off); the third on 2026-10-26 with no code change in
+between. Reports for the first two:
 [`2026-10-23-full-5a22ad5c`](evals/results/2026-10-23-full-5a22ad5c/report.md) and
-[`2026-10-25-full-313ca6f6`](evals/results/2026-10-25-full-313ca6f6/report.md).
+[`2026-10-25-full-313ca6f6`](evals/results/2026-10-25-full-313ca6f6/report.md). Run 3
+(`full-66397b13`) was not saved: only its printed summary survives, so its row below comes from
+that summary and has no report to link.
 
 | Run | Intent accuracy | Escalation recall | Escalation precision | Model drafts passing grounding, first try / either try | Fell back to template | Cost / ticket |
 |---|---|---|---|---|---|---|
 | 2026-10-23, before the fixes | 0.897 (0.81-0.95) | **0.893 (0.73-0.96)** | 0.926 (0.77-0.98) | 0.552 / 0.810 (n=58) | 11 of 58 | Rs 0.23 |
 | 2026-10-25, after the fixes | 0.897 (0.81-0.95) | **0.893 (0.73-0.96)** | 0.926 (0.77-0.98) | 0.897 / 0.966 (n=58) | 2 of 58 | Rs 0.20 |
+| 2026-10-26, same code, printed summary only | 0.910 | **0.964 (0.82-0.99)** | not recorded | 0.821 / 0.946 (n=56) | 3 of 56 | Rs 0.21 |
 
 The keyword baseline scored intent 0.795, recall 0.500 and precision 0.737 on the same tickets, so
-the model is better on every measure. What the two runs show:
+the model is better on every measure. What the three runs show:
 
 - **Drafting improved a lot.** Once the code added the sign-off, first-try grounding went from 55%
   to 90% and fallbacks from 19% to 3%. The 2 remaining fallbacks failed rule G-3 (a promise of an
@@ -176,7 +181,10 @@ the model is better on every measure. What the two runs show:
   measurement. T052 (a product question the policy cannot answer, which should be suggestion only)
   was missed both times.
 - **The 0.95 gate is stricter than 28 escalation cases can support.** One ticket moves recall by
-  about 3.5 points, and both runs' intervals (0.73 to 0.96) include 0.95.
+  about 3.5 points. Run 3 got 27 of 28 (only T052 missed; T050 and T067 were falsely escalated)
+  with the same code as run 2, so the move from 0.893 to 0.964 is two tickets flipping, not
+  an improvement. Pooled over the three runs it is 0.917 (77 of 84), and every run's interval
+  includes 0.95.
 - The first version of the first report counted the fallback template as a model draft. The
   evaluator is fixed and that report is corrected; see `CORRECTION.md` in its folder.
 
