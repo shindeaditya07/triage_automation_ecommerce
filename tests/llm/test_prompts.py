@@ -23,7 +23,7 @@ from services.api.models.enums import SourceType
 def test_the_shipped_prompts_load_and_hash_like_the_eval_runner() -> None:
     registry = PromptRegistry.load()
     hashes = prompt_hashes()
-    for name, version in {"classify": "1", "draft": "2", "judge": "1"}.items():
+    for name, version in {"classify": "1", "draft": "3", "judge": "1"}.items():
         prompt = registry.get(name)
         assert prompt.version == version
         assert prompt.sha256 == hashes[f"{name}.md"]
