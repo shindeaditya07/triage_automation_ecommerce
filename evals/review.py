@@ -41,6 +41,7 @@ class UnlabeledTicket(StrictModel):
     customer_name: str | None = None
     subject: str | None = None
     body: str
+    thread_message_count: int = 1
 
 
 def load_unlabeled(path: Path = UNLABELED_PATH) -> list[LabeledTicket]:
