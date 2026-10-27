@@ -30,6 +30,7 @@ from services.api.llm.factory import build_llm_client
 from services.api.models.common import StrictModel
 from services.api.models.draft import DraftOutput
 from services.api.models.enums import Intent, Sentiment, Urgency
+from services.api.pipeline.draft import FailedAttempt
 from services.api.settings import LLMSettings
 
 UNLABELED_PATH = corpus.HERE / "datasets" / "unlabeled.jsonl"
@@ -95,8 +96,13 @@ def render(
     return "\n".join(lines)
 
 
-def render_drafts(tickets: Sequence[LabeledTicket], drafts: Mapping[str, DraftOutput]) -> str:
-    """What each customer wrote and what the pipeline would send for a person to approve."""
+def render_drafts(
+    tickets: Sequence[LabeledTicket],
+    drafts: Mapping[str, DraftOutput],
+    failures: Mapping[str, Sequence[FailedAttempt]] | None = None,
+) -> str:
+    """What each customer wrote and what the pipeline would send for a person to approve, with
+    why any earlier attempt was rejected (the rejected text itself is never kept)."""
     blocks = ["## Drafts"]
     for ticket in tickets:
         message = corpus.resolve(ticket.body, ticket.scenario_case)
@@ -112,6 +118,9 @@ def render_drafts(tickets: Sequence[LabeledTicket], drafts: Mapping[str, DraftOu
                 "",
                 draft.reply_text,
             ]
+        for attempt in (failures or {}).get(ticket.id, []):
+            why = "; ".join(attempt.reasons) or ", ".join(attempt.rule_ids) or attempt.outcome
+            lines += ["", f"Attempt {attempt.attempt} rejected ({attempt.outcome}): {why}"]
         blocks.append("\n".join(lines))
     return "\n\n".join(blocks)
 
@@ -176,7 +185,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     stamp = datetime.now(UTC).strftime("%Y-%m-%d")
     out = f"# Unlabeled review, {stamp}\n\nModel: {settings.llm_model}. Not scored.\n\n{table}\n"
     if args.show_drafts:
-        out += f"\n{render_drafts(tickets, pipeline.drafts)}\n"
+        out += f"\n{render_drafts(tickets, pipeline.drafts, pipeline.failures)}\n"
     print(out)
     if args.save:
         args.save.write_text(out, encoding="utf-8")

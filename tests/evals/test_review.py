@@ -1,7 +1,9 @@
 from evals import corpus
 from evals.baseline import BaselinePipeline
 from evals.live import TicketLive
-from evals.review import UNLABELED_PATH, load_unlabeled, render
+from evals.review import UNLABELED_PATH, load_unlabeled, render, render_drafts
+from services.api.models.draft import DraftOutput
+from services.api.pipeline.draft import FailedAttempt
 
 
 def test_unlabeled_file_loads_and_matches_the_seeded_cases() -> None:
@@ -64,3 +66,23 @@ def test_render_drafts_shows_the_message_and_the_reply() -> None:
     assert "RET-1.1" in text
     assert "No draft: the ticket was escalated before drafting." in text
     assert "{order_id}" not in text
+
+
+def test_render_drafts_shows_why_an_attempt_was_rejected() -> None:
+    ticket = load_unlabeled(UNLABELED_PATH)[0]
+    draft = DraftOutput(
+        reply_text="Hello.\n\nKaveri Home Goods Support",
+        confidence=0.0,
+        prompt_version="fallback",
+        prompt_hash="h",
+        model="fallback",
+        policy_version="1.1",
+    )
+    attempts = [
+        FailedAttempt(1, "grounding_failed", rule_ids=["G-3"], reasons=["G-3: promises a refund"]),
+        FailedAttempt(2, "grounding_failed", rule_ids=["G-5"]),
+    ]
+    text = render_drafts([ticket], {ticket.id: draft}, {ticket.id: attempts})
+    assert "Attempt 1 rejected (grounding_failed): G-3: promises a refund" in text
+    assert "Attempt 2 rejected (grounding_failed): G-5" in text
+    assert "rejected" not in render_drafts([ticket], {ticket.id: draft})
