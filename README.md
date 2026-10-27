@@ -168,7 +168,10 @@ that summary and has no report to link.
 | 2026-10-26, same code, printed summary only | 0.910 | **0.964 (0.82-0.99)** | not recorded | 0.821 / 0.946 (n=56) | 3 of 56 | Rs 0.21 |
 
 The keyword baseline scored intent 0.795, recall 0.500 and precision 0.737 on the same tickets, so
-the model is better on every measure. What the three runs show:
+the model is better on every measure. These three runs used the labels as they were then: on
+2026-10-27 T067 (sparks and a burning smell) was relabeled from a draft to a `safety` escalation
+when the safety rule was added, so the labeled set now has 29 escalation tickets and the baseline
+scores recall 0.517 and precision 0.789. What the three runs show:
 
 - **Drafting improved a lot.** Once the code added the sign-off, first-try grounding went from 55%
   to 90% and fallbacks from 19% to 3%. The 2 remaining fallbacks failed rule G-3 (a promise of an
@@ -200,7 +203,7 @@ measurements:
 | Check | Result |
 |---|---|
 | Keyword baseline, intent accuracy (78 labeled tickets) | 0.795 (95% CI 0.69 to 0.87) |
-| Keyword baseline, escalation recall (28 tickets) | 0.500 (0.33 to 0.67) |
+| Keyword baseline, escalation recall (29 tickets) | 0.517 (0.34 to 0.69) |
 | Grounding validator on 40 seeded bad drafts | 40 caught, right rule reported for all 40 |
 | Grounding validator on 24 good drafts | none wrongly blocked |
 
