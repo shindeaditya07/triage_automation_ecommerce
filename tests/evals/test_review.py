@@ -36,3 +36,8 @@ def test_render_has_one_row_per_ticket() -> None:
     assert "| T901 |" in table
     assert "llm" in table.splitlines()[2]
     assert table.splitlines()[3].endswith("| none |")
+
+
+def test_a_repeat_complaint_carries_its_thread_length() -> None:
+    by_id = {t.id: t for t in load_unlabeled()}
+    assert by_id["T911"].thread_message_count >= 3
