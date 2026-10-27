@@ -41,6 +41,7 @@ from services.api.pipeline.draft import (
     GROUNDING_UNAVAILABLE_REASON,
     DraftingConfig,
     DraftStage,
+    FailedAttempt,
     draft_ticket,
 )
 from services.api.pipeline.store import TicketText
@@ -204,6 +205,8 @@ class LivePipeline:
     details: list[TicketLive] = field(default_factory=list)
     drafts: dict[str, DraftOutput] = field(default_factory=dict)
     """The reply of every ticket that got one, kept in memory for `evals.review`; never saved."""
+    failures: dict[str, list[FailedAttempt]] = field(default_factory=dict)
+    """Why each rejected attempt failed (rules and reasons, not the text); in memory only."""
     _runner: asyncio.Runner = field(default_factory=asyncio.Runner, repr=False)
     _config: DraftingConfig | None = field(default=None, repr=False)
 
@@ -300,6 +303,8 @@ class LivePipeline:
         kind = draft_kind(drafted)
         if drafted is not None and drafted.draft is not None:
             self.drafts[ticket.id] = drafted.draft
+        if drafted is not None and drafted.failed_attempts:
+            self.failures[ticket.id] = drafted.failed_attempts
         reason = escalation or (drafted.escalation_reason if drafted else None)
         provider_error = reason if is_provider_failure(reason) else None
         self.details.append(
