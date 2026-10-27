@@ -64,7 +64,7 @@
 {"ticket_id": "T064", "classification": {"intent": "order_status", "urgency": "normal", "confidence": 0.89, "sentiment": "negative", "flags": ["compensation_request"]}, "outcome": "suggestion_only", "escalation_reasons": ["outside_policy"]}
 {"ticket_id": "T065", "classification": {"intent": "damaged_item", "urgency": "high", "confidence": 0.89, "sentiment": "negative", "flags": []}, "outcome": "draft", "escalation_reasons": []}
 {"ticket_id": "T066", "classification": {"intent": "refund", "urgency": "high", "confidence": 0.87, "sentiment": "very_negative", "flags": ["angry"]}, "outcome": "draft", "escalation_reasons": []}
-{"ticket_id": "T067", "classification": {"intent": "warranty", "urgency": "critical", "confidence": 0.94, "sentiment": "very_negative", "flags": ["angry"]}, "outcome": "draft", "escalation_reasons": []}
+{"ticket_id": "T067", "classification": {"intent": "warranty", "urgency": "critical", "confidence": 0.94, "sentiment": "very_negative", "flags": ["angry"]}, "outcome": "no_draft_escalation", "escalation_reasons": ["safety"]}
 {"ticket_id": "T068", "classification": {"intent": "order_status", "urgency": "normal", "confidence": 0.61, "sentiment": "neutral", "flags": []}, "outcome": "no_draft_escalation", "escalation_reasons": ["low_confidence"]}
 {"ticket_id": "T069", "classification": {"intent": "refund", "urgency": "normal", "confidence": 0.87, "sentiment": "neutral", "flags": []}, "outcome": "draft", "escalation_reasons": []}
 {"ticket_id": "T070", "classification": {"intent": "order_status", "urgency": "low", "confidence": 0.91, "sentiment": "neutral", "flags": []}, "outcome": "draft", "escalation_reasons": []}
