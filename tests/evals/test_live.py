@@ -57,6 +57,7 @@ def test_a_ticket_the_rules_escalate_is_never_drafted() -> None:
         pipeline.close()
     assert prediction.outcome is Outcome.NO_DRAFT_ESCALATION
     assert not detail.reached_drafting and detail.drafted is None
+    assert pipeline.drafts == {}
 
 
 def test_a_failing_drafter_escalates_the_ticket_and_the_report_counts_it() -> None:
