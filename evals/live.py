@@ -202,6 +202,8 @@ class LivePipeline:
     spent: Decimal = Decimal(0)
     setup_cost: Decimal = Decimal(0)
     details: list[TicketLive] = field(default_factory=list)
+    drafts: dict[str, DraftOutput] = field(default_factory=dict)
+    """The reply of every ticket that got one, kept in memory for `evals.review`; never saved."""
     _runner: asyncio.Runner = field(default_factory=asyncio.Runner, repr=False)
     _config: DraftingConfig | None = field(default=None, repr=False)
 
@@ -296,6 +298,8 @@ class LivePipeline:
             rule for f in (drafted.failed_attempts if drafted else []) for rule in f.rule_ids
         )
         kind = draft_kind(drafted)
+        if drafted is not None and drafted.draft is not None:
+            self.drafts[ticket.id] = drafted.draft
         reason = escalation or (drafted.escalation_reason if drafted else None)
         provider_error = reason if is_provider_failure(reason) else None
         self.details.append(

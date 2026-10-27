@@ -9,7 +9,7 @@ labeled set.
 
 import argparse
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -28,6 +28,7 @@ from evals.metrics import Prediction
 from evals.schema import LabeledTicket, Outcome
 from services.api.llm.factory import build_llm_client
 from services.api.models.common import StrictModel
+from services.api.models.draft import DraftOutput
 from services.api.models.enums import Intent, Sentiment, Urgency
 from services.api.settings import LLMSettings
 
@@ -94,11 +95,35 @@ def render(
     return "\n".join(lines)
 
 
+def render_drafts(tickets: Sequence[LabeledTicket], drafts: Mapping[str, DraftOutput]) -> str:
+    """What each customer wrote and what the pipeline would send for a person to approve."""
+    blocks = ["## Drafts"]
+    for ticket in tickets:
+        message = corpus.resolve(ticket.body, ticket.scenario_case)
+        lines = [f"### {ticket.id}: {ticket.subject or '(no subject)'}", "", f"> {message}", ""]
+        draft = drafts.get(ticket.id)
+        if draft is None:
+            lines.append("No draft: the ticket was escalated before drafting.")
+        else:
+            cited = ", ".join(c.source_ref for c in draft.citations) or "none"
+            lines += [
+                f"Proposed action: {draft.proposed_action.value}. Confidence "
+                f"{draft.confidence:.2f}. Cited: {cited}.",
+                "",
+                draft.reply_text,
+            ]
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="evals.review", description=__doc__.splitlines()[0])
     parser.add_argument("--max-cost-inr", type=float, required=True)
     parser.add_argument("--calls-per-minute", type=float, default=None)
     parser.add_argument("--file", type=Path, default=UNLABELED_PATH)
+    parser.add_argument(
+        "--show-drafts", action="store_true", help="print each reply under the table"
+    )
     parser.add_argument("--save", type=Path, default=None, help="also write the table here")
     args = parser.parse_args(argv)
 
@@ -150,6 +175,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     table = render(tickets, predictions, pipeline.details)
     stamp = datetime.now(UTC).strftime("%Y-%m-%d")
     out = f"# Unlabeled review, {stamp}\n\nModel: {settings.llm_model}. Not scored.\n\n{table}\n"
+    if args.show_drafts:
+        out += f"\n{render_drafts(tickets, pipeline.drafts)}\n"
     print(out)
     if args.save:
         args.save.write_text(out, encoding="utf-8")
