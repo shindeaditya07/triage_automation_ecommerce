@@ -1,5 +1,6 @@
 """The drafting step over the in-memory policy index and a scripted drafter."""
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
@@ -11,8 +12,8 @@ from services.api.llm.client import DraftRequest, JudgeRequest, LLMResult
 from services.api.llm.errors import LLMInvalidOutputError, LLMRequestError
 from services.api.llm.fake import FakeLLMClient
 from services.api.models import Order
-from services.api.models.draft import DraftOutput
-from services.api.models.enums import Intent, TicketStatus
+from services.api.models.draft import Citation, DraftOutput
+from services.api.models.enums import Intent, SourceType, TicketStatus
 from services.api.models.judge import JudgeOutput
 from services.api.pipeline.draft import (
     INVALID_OUTPUT_REASON,
@@ -192,3 +193,24 @@ async def test_a_closing_the_model_wrote_is_replaced_by_the_stores_sign_off(
     stage = await draft_ticket(client, config, ticket(), found(), snapshot_id=uuid4())
     assert stage.draft is not None and stage.attempt == 1 and stage.failed_attempts == []
     assert stage.draft.reply_text == f"Hello.\n\n{SIGN_OFF}"
+
+
+async def test_a_timestamp_the_model_copied_is_written_as_a_plain_date(
+    config: DraftingConfig,
+) -> None:
+    drafted = output("Hello.\n\nIt was delivered on 2026-10-14T16:00:00Z.").model_copy(
+        update={
+            "citations": [
+                Citation(
+                    claim="delivered",
+                    source_type=SourceType.ORDER_FIELD,
+                    source_ref="orders.delivered_at",
+                )
+            ]
+        }
+    )
+    client = ScriptedDrafter([drafted])
+    owned = replace(ticket(), customer_email=an_order().customer_email)
+    stage = await draft_ticket(client, config, owned, found(), snapshot_id=uuid4())
+    assert stage.draft is not None
+    assert stage.draft.reply_text == f"Hello.\n\nIt was delivered on 14 October 2026.\n\n{SIGN_OFF}"

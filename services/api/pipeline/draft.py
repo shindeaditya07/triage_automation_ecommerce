@@ -20,6 +20,7 @@ from uuid import UUID
 from services.api.context.lookup import ContextLookup
 from services.api.grounding.check import check_grounding
 from services.api.grounding.config import GroundingConfig, default_config
+from services.api.grounding.plain_dates import with_plain_dates
 from services.api.grounding.result import GroundingResult
 from services.api.grounding.sign_off import with_sign_off
 from services.api.grounding.validator import GroundingContext, validate
@@ -153,7 +154,9 @@ async def draft_ticket(
         # the client reports back.
         draft = result.value.model_copy(
             update={
-                "reply_text": with_sign_off(result.value.reply_text, config.sign_off),
+                "reply_text": with_sign_off(
+                    with_plain_dates(result.value.reply_text), config.sign_off
+                ),
                 "order_snapshot_id": snapshot_id,
                 "policy_version": retrieval.policy_version,
             }

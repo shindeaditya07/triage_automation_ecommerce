@@ -126,7 +126,9 @@ the suggestion-only one.
    passage escalates as `retrieval_failed`.
 2. **Ask the drafter** for a reply. It sees the customer's subject and message in data blocks,
    this customer's order (the sender's email address is removed), the passages, and the store's
-   sign-off. Nothing else.
+   sign-off. Nothing else. The code then writes any ISO date or timestamp in the reply as a plain
+   date in Indian time ("28 October 2026", no time of day; `grounding/plain_dates.py`) and adds
+   the sign-off, before grounding runs.
 3. **An invalid answer is tried once more** with the field errors put back in front of the model.
    Two invalid answers in a row escalate as `draft_invalid_output`; any other model failure
    escalates with its own reason.
