@@ -47,6 +47,24 @@ Nothing here changes a ticket.
 A draft is decided once: only a `pending` draft on a `drafted` ticket accepts any of these (409
 otherwise).
 
+## Owner reply to an escalated ticket
+
+An escalated ticket has no draft, so the owner may write the reply themselves:
+`POST /api/v1/tickets/{id}/owner-reply` `{reply_text, original_viewed, override?}`.
+
+- Only a ticket whose status is `escalated` accepts it (409 otherwise), and only after the owner
+  has opened the customer's original message (`original_viewed: true`, else 409).
+- The store sign-off is added when missing. The text is then checked like an edit (spec FR-12):
+  grounding warnings come back as 422 with the failing rules, and the owner sends past them by
+  repeating the request with an `override` that names every rule and gives a reason. A value that
+  is right but uncited is not a warning, because the owner's text carries no citations.
+- It is recorded as an approved draft of kind `owner` (no model, prompt or policy version), the
+  ticket becomes `approved`, and the mock send follows as for any approval (`ticket.mock_sent`).
+  The audit log gets `ticket.owner_replied` (and `draft.edit_override` if a reason was given).
+  **No message leaves the system.**
+- Metrics: an owner reply does not count toward draft acceptance, fallback rate or policy coverage,
+  and its ticket still counts as escalated.
+
 ## Mock send (spec FR-13)
 
 Approving also records the send in a second transaction: the draft gets `sent_at`, the ticket

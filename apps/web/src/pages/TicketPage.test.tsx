@@ -139,6 +139,78 @@ describe("the ticket screen", () => {
     expect(screen.queryByText(/Escalated:/)).toBeNull();
   });
 
+  it("lets the owner answer an escalated ticket, but only after the message is shown", async () => {
+    const seen = app(
+      detail({
+        status: "escalated",
+        escalation_reason: "legal_threat",
+        draft: null,
+        needs_original_viewed: true,
+      }),
+      (m, p) => (m === "POST" && p.endsWith("/owner-reply") ? outcome : undefined),
+    );
+    show();
+    const user = userEvent.setup();
+    const send = await screen.findByRole("button", { name: "Send reply (mock)" });
+    await user.type(screen.getByRole("textbox", { name: /Your reply/ }), "I will call you today.");
+    expect(send.hasAttribute("disabled")).toBe(true); // the original has not been shown yet
+    await user.click(screen.getByRole("button", { name: "Show original message" }));
+    await user.click(send);
+    await waitFor(() => expect(seen.some((r) => r.path.endsWith("/owner-reply"))).toBe(true));
+    expect(JSON.parse(seen.find((r) => r.path.endsWith("/owner-reply"))!.body)).toEqual({
+      reply_text: "I will call you today.",
+      original_viewed: true,
+      override: null,
+    });
+  });
+
+  it("shows the warnings on an owner reply and sends past them only with a reason", async () => {
+    let calls = 0;
+    const seen = app(
+      detail({
+        status: "escalated",
+        escalation_reason: "legal_threat",
+        draft: null,
+        needs_original_viewed: true,
+      }),
+      (m, p) => {
+        if (m !== "POST" || !p.endsWith("/owner-reply")) return undefined;
+        calls += 1;
+        return calls === 1
+          ? {
+              status: 422,
+              body: {
+                detail: {
+                  message: "this text has grounding warnings; give a reason to save it anyway",
+                  failures: [{ rule_id: "G-3", span: "refund", detail: "promises an outcome" }],
+                },
+              },
+            }
+          : outcome;
+      },
+    );
+    show();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Show original message" }));
+    await user.type(screen.getByRole("textbox", { name: /Your reply/ }), "We will refund you.");
+    await user.click(screen.getByRole("button", { name: "Send reply (mock)" }));
+    expect(await screen.findByText("promises an outcome")).toBeTruthy();
+    const anyway = screen.getByRole("button", { name: "Send anyway (mock)" });
+    expect(anyway.hasAttribute("disabled")).toBe(true);
+    await user.type(screen.getByRole("textbox", { name: /Why is it right/ }), "I will refund it");
+    await user.click(anyway);
+    await waitFor(() => expect(calls).toBe(2));
+    const second = JSON.parse(seen.filter((r) => r.path.endsWith("/owner-reply"))[1]!.body);
+    expect(second.override).toEqual({ reason: "I will refund it", overridden_rules: ["G-3"] });
+  });
+
+  it("offers no reply box on a ticket that is not escalated", async () => {
+    app(detail());
+    show();
+    await screen.findByText("Draft reply");
+    expect(screen.queryByRole("textbox", { name: /Your reply/ })).toBeNull();
+  });
+
   it("asks for a second confirmation on a suggestion-only draft", async () => {
     const seen = app(detail({ draft: draft({ suggestion_only: true }) }), (m, p) =>
       m === "POST" && p.endsWith("/approve") ? outcome : undefined,

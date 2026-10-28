@@ -1,4 +1,4 @@
-"""What the owner sends to save an edit, approve or reject, and what comes back."""
+"""What the owner sends to save an edit, approve, reject or reply, and what comes back."""
 
 from uuid import UUID
 
@@ -29,6 +29,14 @@ class OverrideInput(StrictModel):
 
 class SaveEditRequest(StrictModel):
     reply_text: str = Field(min_length=1, max_length=MAX_REPLY_CHARS)
+    override: OverrideInput | None = None
+
+
+class OwnerReplyRequest(StrictModel):
+    """The owner's own reply to an escalated ticket, which has no draft."""
+
+    reply_text: str = Field(min_length=1, max_length=MAX_REPLY_CHARS)
+    original_viewed: bool = False  # the owner has opened the customer's original message
     override: OverrideInput | None = None
 
 
