@@ -65,7 +65,7 @@ async def test_the_request_carries_the_email_and_quotes_the_path() -> None:
     assert seen[0].params["email"] == "a+b@example.com"
 
 
-@pytest.mark.parametrize("status", [500, 502, 503])
+@pytest.mark.parametrize("status", [429, 408, 500, 502, 503])
 async def test_a_failing_store_is_unavailable_without_leaking_the_body(status: int) -> None:
     client, http = store_client(reply(status, {"detail": "secret@example.com"}))
     async with http:

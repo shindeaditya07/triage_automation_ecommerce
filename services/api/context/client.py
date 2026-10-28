@@ -14,9 +14,12 @@ from pydantic import BaseModel, ValidationError
 
 from services.api.models import CustomerHistory, Order
 
+# 4xx replies that mean "try again later" (request timeout, too many requests), not a bad request.
+_RETRYABLE_CLIENT_STATUSES = frozenset({408, 429})
+
 
 class StoreUnavailable(Exception):
-    """The store did not answer, or failed (timeout, connection error, 5xx). Worth trying again."""
+    """The store did not answer, or failed (timeout, connection, 5xx, 408, 429). Try again."""
 
 
 class StoreContractError(Exception):
@@ -74,7 +77,7 @@ class OrderStoreClient:
 
     @staticmethod
     def _unexpected(response: httpx.Response) -> Exception:
-        if response.status_code >= 500:
+        if response.status_code >= 500 or response.status_code in _RETRYABLE_CLIENT_STATUSES:
             return StoreUnavailable(f"the order store failed (HTTP {response.status_code})")
         return StoreContractError(
             f"unexpected reply from the order store (HTTP {response.status_code})"
