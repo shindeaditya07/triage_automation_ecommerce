@@ -77,6 +77,7 @@ class ProposedAction(StrEnum):
 class DraftKind(StrEnum):
     LLM = "llm"
     FALLBACK_TEMPLATE = "fallback_template"
+    OWNER = "owner"  # written by the owner on an escalated ticket; no model was involved
 
 
 class ReviewStatus(StrEnum):

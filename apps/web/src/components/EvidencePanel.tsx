@@ -40,7 +40,12 @@ export function EvidencePanel({ ticket }: { ticket: TicketDetail }) {
       {draft && (
         <>
           <h3>Grounding</h3>
-          {draft.kind === "fallback_template" ? (
+          {draft.kind === "owner" ? (
+            <p className="hint">
+              Written by you, so there is no AI draft to check. The reply was checked against the
+              order when you sent it.
+            </p>
+          ) : draft.kind === "fallback_template" ? (
             <p className="hint">
               Standard reply. It makes no claims from the order or policies, so there is nothing to
               check.

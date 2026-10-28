@@ -13,6 +13,25 @@ export function errorMessage(error: unknown): string {
   return "Could not reach the server.";
 }
 
+/** The grounding warnings a refused reply came back with, if it was refused for them. */
+export function warningsOf(error: unknown): { ruleId: string; detail: string }[] {
+  if (!(error instanceof ApiError) || error.status !== 422) return [];
+  const detail = error.detail;
+  if (!detail || typeof detail !== "object" || !("failures" in detail)) return [];
+  const failures = (detail as { failures: unknown }).failures;
+  if (!Array.isArray(failures)) return [];
+  return failures.flatMap((item) =>
+    item && typeof item === "object" && "rule_id" in item
+      ? [
+          {
+            ruleId: String((item as { rule_id: unknown }).rule_id),
+            detail: String((item as { detail?: unknown }).detail ?? ""),
+          },
+        ]
+      : [],
+  );
+}
+
 export interface GroundingView {
   passed: boolean | null;
   failures: { ruleId: string; detail: string }[];

@@ -12,7 +12,7 @@ from services.api.grounding.edit import EditContext, EditOverride
 from services.api.main import create_app
 from services.api.models.enums import ReviewStatus, TicketStatus
 from services.api.review.service import ReviewService
-from services.api.review.store import NotOpen, ReviewState
+from services.api.review.store import EscalatedState, NotOpen, ReviewState
 from tests.auth import conftest as auth
 from tests.auth.conftest import login
 from tests.grounding.conftest import ORDER, POLICIES, SIGN_OFF, order_cite, reply
@@ -48,12 +48,30 @@ class FakeReviewStore:
         )
         if state:
             self.state = replace(self.state, **state)  # type: ignore[arg-type]
+        self.escalated: EscalatedState | None = None  # set by a test that replies to one
         self.overrides: list[EditOverride] = []
         self.events: list[str] = []
         self.fail_send = False
 
     async def load(self, ticket_id: UUID) -> ReviewState | None:
         return self.state if ticket_id == TICKET else None
+
+    async def load_escalated(self, ticket_id: UUID) -> EscalatedState | None:
+        return self.escalated if ticket_id == TICKET else None
+
+    async def owner_reply(self, ticket_id, state, text, actor, now, override) -> None:  # type: ignore[no-untyped-def]
+        if self.escalated is None or self.escalated.ticket_status is not TicketStatus.ESCALATED:
+            raise NotOpen
+        self.escalated = replace(self.escalated, ticket_status=TicketStatus.APPROVED)
+        self.state = replace(
+            self.state,
+            ticket_status=TicketStatus.APPROVED,
+            review_status=ReviewStatus.APPROVED,
+            final_text=text,
+        )
+        self.events.append(f"owner reply by {actor}")
+        if override is not None:
+            self.overrides.append(override)
 
     async def override_rules(self, draft_id: UUID) -> set[str]:
         return set(self.overrides[-1].overridden_rules) if self.overrides else set()
