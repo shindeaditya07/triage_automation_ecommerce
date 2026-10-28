@@ -193,8 +193,30 @@ scores recall 0.517 and precision 0.789. What the three runs show:
 
 Limits of these runs: the judge is the same model as the drafter, so grounding is checked less
 independently than it appears; the policy embeddings were the fake hashed ones, so vector search
-was not measured; the data is synthetic and written by the developer; and each run is a single
+was not measured in these runs (see the next section); the data is synthetic and written by the developer; and each run is a single
 sample.
+
+### Retrieval with real embeddings
+
+Measured on 2026-10-28 with `make eval-retrieval` (`gemini-embedding-001`; the same 55 drafted
+tickets as the runs above, and the cited passages are the labeled `policy_ids`, tone passages left
+out). It compares the fake hashed vectors the smoke eval uses with the real model:
+
+| Measure | Fake vectors | `gemini-embedding-001` |
+|---|---|---|
+| Cited passages retrieved | 93.3% (97 of 104) | **98.1% (102 of 104)** |
+| Tickets with every cited passage | 87.3% (48 of 55) | 96.4% (53 of 55) |
+| Cited passages found by the intent rules alone | 80.8% (84 of 104) | 80.8% (84 of 104) |
+
+The intent rules alone find 81%; the vector search supplies the rest, and the real model finds five
+more than the fake one. The two tickets still missing a passage are both messages about two topics:
+T007 (a refund for a cancelled order) does not get CAN-5.1, and T030 (order status plus a possible
+return) does not get RET-1.1. In both, the missing passage belongs to the secondary topic.
+
+Limits: 104 passages is a small sample (two misses move the rate about two points, and the 95%
+interval is roughly 93% to 99.5%); the draft is handed about 9 passages on average, so part of the
+recall is a wide net, and whether the extra passages distract the drafter is not measured; the
+labels and the policy were written by the same person; and it is one run.
 
 What exists today is the smoke run (2026-10-22, `smoke-622461a4`, policy v1.1). It replays recorded
 fixtures with seeded mistakes, so it tests the harness, not a model. Two of its numbers are real
@@ -266,6 +288,9 @@ For what to do when something breaks, read [docs/runbook.md](docs/runbook.md).
 - **Privacy review not done.** The system stores customer personal data. Check it against India's
   DPDP Act with a qualified person before using it with real customers.
 - **Synthetic evaluation data.** See above.
+- **Messages about two topics.** Policy passages come from the one intent the classifier picks plus
+  the closest by meaning. In the real-embedding check, the secondary topic's passage was missed in
+  both tickets that failed (T007, T030).
 - **No data clean-up yet.** `RETENTION_DAYS` is a setting, but nothing deletes old data.
 
 ## License
