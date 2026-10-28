@@ -89,10 +89,13 @@ function TicketView({
         <time dateTime={ticket.received_at}>{new Date(ticket.received_at).toLocaleString()}</time>{" "}
         <span className="badge muted">{humanize(ticket.status)}</span>
       </p>
-      {ticket.escalation_reason && (
+      {ticket.escalation_reason && ticket.status === "escalated" && (
         <p className="banner danger" role="alert">
           Escalated: {humanize(ticket.escalation_reason)}
         </p>
+      )}
+      {ticket.escalation_reason && ticket.status !== "escalated" && (
+        <p className="banner caution">Flagged: {humanize(ticket.escalation_reason)}</p>
       )}
       {ticket.failure_reason && (
         <p className="banner danger" role="alert">
