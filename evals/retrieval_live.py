@@ -99,10 +99,14 @@ def render(fake: RetrievalMetrics, real: RetrievalMetrics, model: str) -> str:
 
 
 async def _run(client: MeteredClient) -> tuple[RetrievalMetrics, RetrievalMetrics]:
-    tickets = corpus.load_labeled()
-    fake = await retrieval.measure(tickets, FakeLLMClient())
-    real = await retrieval.measure(tickets, client)
-    return fake, real
+    """Measure and close the client on the same event loop its connections were opened on."""
+    try:
+        tickets = corpus.load_labeled()
+        fake = await retrieval.measure(tickets, FakeLLMClient())
+        real = await retrieval.measure(tickets, client)
+        return fake, real
+    finally:
+        await client.aclose()
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -146,8 +150,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"The embedding call failed ({type(exc).__name__}: {exc}). No result.", file=sys.stderr
         )
         return 4
-    finally:
-        asyncio.run(client.aclose())
 
     print(render(fake, real, settings.embed_model or settings.embed_provider))
     print(

@@ -2,7 +2,7 @@
 COMPOSE ?= docker compose
 UV ?= uv
 
-.PHONY: help install up down migrate seed owner-hash lint test eval eval-smoke resilience build \
+.PHONY: help install up down migrate seed owner-hash lint test eval eval-retrieval eval-smoke resilience build \
 	deploy-staging deploy-prod audit policy-check index-policies generate-types check-types
 
 help: ## List targets
