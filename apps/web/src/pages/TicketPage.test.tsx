@@ -126,6 +126,19 @@ describe("the ticket screen", () => {
     expect(sent).toEqual({ original_viewed: true, confirm_suggestion_only: false });
   });
 
+  it("shows an escalated ticket's reason as an escalation", async () => {
+    app(detail({ status: "escalated", escalation_reason: "safety", draft: null }));
+    show();
+    expect(await screen.findByText("Escalated: Safety")).toBeTruthy();
+  });
+
+  it("calls a drafted ticket with a reason flagged, not escalated", async () => {
+    app(detail({ escalation_reason: "outside_policy" }));
+    show();
+    expect(await screen.findByText("Flagged: Outside policy")).toBeTruthy();
+    expect(screen.queryByText(/Escalated:/)).toBeNull();
+  });
+
   it("asks for a second confirmation on a suggestion-only draft", async () => {
     const seen = app(detail({ draft: draft({ suggestion_only: true }) }), (m, p) =>
       m === "POST" && p.endsWith("/approve") ? outcome : undefined,
