@@ -54,6 +54,9 @@ test: ## Unit and pipeline tests (no live LLM or network)
 eval: ## Live eval: make eval MAX_COST_INR=100 [CPM=10] [LIMIT=5]. Costs money; stops at the limit
 	$(UV) run python -m evals.runner --mode full --save $(if $(MAX_COST_INR),--max-cost-inr $(MAX_COST_INR)) $(if $(CPM),--calls-per-minute $(CPM)) $(if $(LIMIT),--limit $(LIMIT))
 
+eval-retrieval: ## Retrieval recall with real embeddings: make eval-retrieval MAX_COST_INR=5 [CPM=20]. Costs money
+	$(UV) run python -m evals.retrieval_live $(if $(MAX_COST_INR),--max-cost-inr $(MAX_COST_INR)) $(if $(CPM),--calls-per-minute $(CPM))
+
 eval-smoke: ## Smoke eval against recorded fixtures (CI-safe, no model calls)
 	$(UV) run python -m evals.runner --mode smoke
 

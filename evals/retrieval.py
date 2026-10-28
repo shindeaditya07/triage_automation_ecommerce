@@ -21,7 +21,7 @@ from evals.schema import LabeledTicket, Outcome
 from scripts.policy_lib import POLICIES_PATH
 from services.api.llm.client import LLMClient
 from services.api.models.common import StrictModel
-from services.api.retrieval.catalog import SUGGESTION_ONLY
+from services.api.retrieval.catalog import SUGGESTION_ONLY, deterministic_ids
 from services.api.retrieval.index import MemoryPolicyIndex
 from services.api.retrieval.retrieve import TOP_K, retrieve
 
@@ -55,12 +55,12 @@ async def measure(tickets: Sequence[LabeledTicket], llm: LLMClient) -> Retrieval
             "extra_ids": extra,
         }
         full = await retrieve(index, llm, **common)  # type: ignore[arg-type]
-        by_intent = await retrieve(index, llm, top_k=0, **common)  # type: ignore[arg-type]
+        by_intent = set(deterministic_ids(ticket.intent, extra))
         target = _targets(ticket)
         hit = target & set(full.policy_ids)
         found += len(hit)
         total += len(target)
-        intent_found += len(target & set(by_intent.policy_ids))
+        intent_found += len(target & by_intent)
         retrieved_count += len(full.passages)
         if hit == target:
             complete += 1
