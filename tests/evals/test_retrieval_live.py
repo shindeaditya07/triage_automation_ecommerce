@@ -42,3 +42,18 @@ def test_it_refuses_to_run_without_a_live_model(
     monkeypatch.delenv("LLM_PROVIDER", raising=False)
     assert retrieval_live.main(["--max-cost-inr", "1"]) == 2
     assert "Nothing was run" in capsys.readouterr().err
+
+
+def test_the_client_is_closed_on_the_loop_that_used_it() -> None:
+    loops: list[object] = []
+
+    class Spy(FakeLLMClient):
+        async def embed(self, texts, kind="document"):  # type: ignore[no-untyped-def]
+            loops.append(asyncio.get_running_loop())
+            return await super().embed(texts, kind)
+
+        async def aclose(self) -> None:
+            loops.append(asyncio.get_running_loop())
+
+    asyncio.run(retrieval_live._run(retrieval_live.MeteredClient(Spy(), Decimal(1))))
+    assert len(set(map(id, loops))) == 1
