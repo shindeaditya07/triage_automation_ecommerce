@@ -127,8 +127,13 @@ def compute(
         if kind == "ticket.mock_sent" and (tid, "ticket.drafted") in first_event
     ]
 
+    # A reply the owner wrote on an escalated ticket is not a model draft: it counts toward
+    # neither acceptance, fallback nor policy coverage, and the ticket still counts as escalated.
+    owner_replied = {d.ticket_id for d in drafts if d.kind == "owner"}
     latest: dict[object, DraftRow] = {}
     for d in drafts:
+        if d.kind == "owner":
+            continue
         if d.ticket_id not in latest or d.attempt > latest[d.ticket_id].attempt:
             latest[d.ticket_id] = d
     approved = [d for d in latest.values() if d.review_status == "approved"]
@@ -144,7 +149,7 @@ def compute(
     reasons: Counter[str] = Counter()
     escalated = 0
     for t in tickets:
-        if t.status == "escalated":
+        if t.status == "escalated" or t.ticket_id in owner_replied:
             escalated += 1
             reasons.update(r for r in (t.escalation_reason or "").split(",") if r)
 

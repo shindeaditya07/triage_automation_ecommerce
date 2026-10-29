@@ -17,6 +17,9 @@ SIGN_OFF = "Kaveri Home Goods Support"
         "Hello Asha.\n\nYour order is on its way.\n\nKaveri Home Goods Support Team",
         "Hello Asha.\n\nYour order is on its way.\n\nThank you.",
         "Hello Asha.\n\nYour order is on its way.\nSincerely,\nThe Kaveri Team",
+        f"Hello Asha.\n\nYour order is on its way. {SIGN_OFF}",
+        f"Hello Asha.\n\nYour order is on its way. {SIGN_OFF.lower()}.",
+        f"Hello Asha.\n\nYour order is on its way. {SIGN_OFF}\n\n{SIGN_OFF}",
     ],
 )
 def test_the_reply_ends_with_the_exact_sign_off_once(text: str) -> None:

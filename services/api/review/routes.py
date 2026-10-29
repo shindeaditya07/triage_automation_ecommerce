@@ -1,5 +1,6 @@
-"""Save an edit, approve or reject a ticket's draft. Owner-only; see review/service.py for the
-rules. Approving records the decision and the mock send (spec FR-13); no reply leaves the system."""
+"""Save an edit, approve or reject a ticket's draft, or reply to an escalated ticket. Owner-only;
+see review/service.py for the rules. Approving records the decision and the mock send (spec FR-13);
+no reply leaves the system."""
 
 from typing import Annotated
 from uuid import UUID
@@ -10,6 +11,7 @@ from services.api.auth.routes import require_owner
 from services.api.auth.service import Owner
 from services.api.review.models import (
     ApproveRequest,
+    OwnerReplyRequest,
     RejectRequest,
     ReviewOutcome,
     SaveEditRequest,
@@ -38,6 +40,24 @@ async def save_edit(
         return await service.save_edit(ticket_id, body, owner)
     except NoDraft:
         raise HTTPException(404, "no draft for this ticket") from None
+    except Invalid as exc:
+        raise HTTPException(
+            422,
+            {"message": str(exc), "failures": [f.model_dump(mode="json") for f in exc.failures]},
+        ) from None
+    except Conflict as exc:
+        raise HTTPException(409, str(exc)) from None
+
+
+@router.post("/{ticket_id}/owner-reply", response_model=ReviewOutcome)
+async def owner_reply(
+    ticket_id: UUID, body: OwnerReplyRequest, owner: Who, service: Service
+) -> ReviewOutcome:
+    """Answer an escalated ticket yourself. Checked like an edit; recorded and mock-sent."""
+    try:
+        return await service.owner_reply(ticket_id, body, owner)
+    except NoDraft:
+        raise HTTPException(404, "no such ticket") from None
     except Invalid as exc:
         raise HTTPException(
             422,

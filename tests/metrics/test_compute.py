@@ -165,3 +165,19 @@ def test_cost_sums_every_call_and_averages_over_all_tickets() -> None:
     assert (report.cost.input_tokens, report.cost.output_tokens) == (300, 120)
     [day] = report.cost.per_day
     assert (day.day, day.tickets, day.cost_inr) == (DAY, 2, 0.75)
+
+
+def test_an_owner_reply_is_not_a_model_draft_and_the_ticket_stays_escalated() -> None:
+    answered = ticket(status="sent", escalation_reason="legal_threat")
+    drafted = ticket(status="sent")
+    report = run(
+        [answered, drafted],
+        [
+            draft(answered, kind="owner", review_status="approved", final_text="My own reply"),
+            draft(drafted, review_status="approved", final_text=None),
+        ],
+    )
+    assert (report.draft_acceptance.numerator, report.draft_acceptance.denominator) == (1, 1)
+    assert report.fallback.denominator == 1
+    assert (report.escalations.escalated, report.escalations.total) == (1, 2)
+    assert {c.key: c.count for c in report.escalations.by_reason} == {"legal_threat": 1}

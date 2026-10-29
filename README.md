@@ -9,6 +9,11 @@ or rejects every reply. Nothing is sent without that decision.
 It is built around a fictional Indian home goods store, **Kaveri Home Goods**, and uses a mock
 order store. The pipeline does not depend on that store: it needs an order API and a policy document.
 
+**Status:** version 1.0.0, running on a staging environment only. There is no production
+deployment, the store is a mock, and "send" records a mock send without emailing anyone. It is a
+portfolio project with synthetic data, not something to point at real customers (see
+[Known limitations](#known-limitations)).
+
 [![CI](https://github.com/shindeaditya07/triage_automation_ecommerce/actions/workflows/ci.yml/badge.svg)](https://github.com/shindeaditya07/triage_automation_ecommerce/actions/workflows/ci.yml)
 
 ## Contents
@@ -31,7 +36,7 @@ order store. The pipeline does not depend on that store: it needs an order API a
 2. **Classifies** it: one of ten intents, an urgency, a confidence and flags.
 3. **Escalates early**, in plain code with no model call: abusive tone, a legal threat, suspected
    fraud, a prompt injection, low confidence, or no policy workflow. These go to the owner with no
-   draft.
+   draft; the owner can write a reply on the ticket page (checked like an edit, mock send).
 4. **Looks up the order**, but only if the sender owns it. A message quoting someone else's order
    is escalated and no order data is kept.
 5. **Escalates again** with the order known: a missing order, a high-value order, a repeat
@@ -45,6 +50,7 @@ order store. The pipeline does not depend on that store: it needs an order API a
 9. **Shows the owner** the message, the draft and the evidence side by side. Edits are re-checked
    as the owner types, and sending over a warning needs a written reason.
 10. **Records everything** in an audit log and a metrics dashboard computed from stored data.
+    Ticket data older than `RETENTION_DAYS` (90 by default) is erased by a daily job.
 
 ## Architecture
 
@@ -139,6 +145,7 @@ make lint          # ruff, mypy, eslint, prettier
 make test          # backend and frontend tests, no network, no live model
 make eval-smoke    # eval harness on recorded fixtures (what CI runs)
 make eval MAX_COST_INR=100 CPM=10   # live eval (costs money; see docs/evals.md)
+make eval-retrieval MAX_COST_INR=5 CPM=20   # retrieval recall with the real embedding model
 make audit         # pip-audit and npm audit
 make policy-check  # policy constants match the locked policies.md
 ```
@@ -150,20 +157,28 @@ edge cases through the whole pipeline and checks where it lands.
 
 ## Evaluation results
 
-**Two live runs so far, and both fail the project's own gate on escalation recall (0.95).** Both
-used `gemini-3.5-flash-lite` as classifier, drafter and judge over the 78 labeled tickets. The first
-ran on 2026-10-23; the second on 2026-10-25 after two fixes (non-English messages are escalated by
-script, and the code adds the store's sign-off). Reports:
+**Three live runs so far. Two fail the project's own gate on escalation recall (0.95); the third
+passes it by one ticket, which is not enough to call the gate met.** All used
+`gemini-3.5-flash-lite` as classifier, drafter and judge over the 78 labeled tickets. The first ran
+on 2026-10-23; the second on 2026-10-25 after two fixes (non-English messages are escalated by
+script, and the code adds the store's sign-off); the third on 2026-10-26 with no code change in
+between. Reports for the first two:
 [`2026-10-23-full-5a22ad5c`](evals/results/2026-10-23-full-5a22ad5c/report.md) and
-[`2026-10-25-full-313ca6f6`](evals/results/2026-10-25-full-313ca6f6/report.md).
+[`2026-10-25-full-313ca6f6`](evals/results/2026-10-25-full-313ca6f6/report.md). Run 3
+(`full-66397b13`) was not saved: only its printed summary survives, so its row below comes from
+that summary and has no report to link.
 
 | Run | Intent accuracy | Escalation recall | Escalation precision | Model drafts passing grounding, first try / either try | Fell back to template | Cost / ticket |
 |---|---|---|---|---|---|---|
 | 2026-10-23, before the fixes | 0.897 (0.81-0.95) | **0.893 (0.73-0.96)** | 0.926 (0.77-0.98) | 0.552 / 0.810 (n=58) | 11 of 58 | Rs 0.23 |
 | 2026-10-25, after the fixes | 0.897 (0.81-0.95) | **0.893 (0.73-0.96)** | 0.926 (0.77-0.98) | 0.897 / 0.966 (n=58) | 2 of 58 | Rs 0.20 |
+| 2026-10-26, same code, printed summary only | 0.910 | **0.964 (0.82-0.99)** | not recorded | 0.821 / 0.946 (n=56) | 3 of 56 | Rs 0.21 |
 
 The keyword baseline scored intent 0.795, recall 0.500 and precision 0.737 on the same tickets, so
-the model is better on every measure. What the two runs show:
+the model is better on every measure. These three runs used the labels as they were then: on
+2026-10-27 T067 (sparks and a burning smell) was relabeled from a draft to a `safety` escalation
+when the safety rule was added, so the labeled set now has 29 escalation tickets and the baseline
+scores recall 0.517 and precision 0.789. What the three runs show:
 
 - **Drafting improved a lot.** Once the code added the sign-off, first-try grounding went from 55%
   to 90% and fallbacks from 19% to 3%. The 2 remaining fallbacks failed rule G-3 (a promise of an
@@ -176,14 +191,39 @@ the model is better on every measure. What the two runs show:
   measurement. T052 (a product question the policy cannot answer, which should be suggestion only)
   was missed both times.
 - **The 0.95 gate is stricter than 28 escalation cases can support.** One ticket moves recall by
-  about 3.5 points, and both runs' intervals (0.73 to 0.96) include 0.95.
+  about 3.5 points. Run 3 got 27 of 28 (only T052 missed; T050 and T067 were falsely escalated)
+  with the same code as run 2, so the move from 0.893 to 0.964 is two tickets flipping, not
+  an improvement. Pooled over the three runs it is 0.917 (77 of 84), and every run's interval
+  includes 0.95.
 - The first version of the first report counted the fallback template as a model draft. The
   evaluator is fixed and that report is corrected; see `CORRECTION.md` in its folder.
 
 Limits of these runs: the judge is the same model as the drafter, so grounding is checked less
 independently than it appears; the policy embeddings were the fake hashed ones, so vector search
-was not measured; the data is synthetic and written by the developer; and each run is a single
+was not measured in these runs (see the next section); the data is synthetic and written by the developer; and each run is a single
 sample.
+
+### Retrieval with real embeddings
+
+Measured on 2026-10-28 with `make eval-retrieval` (`gemini-embedding-001`; the same 55 drafted
+tickets as the runs above, and the cited passages are the labeled `policy_ids`, tone passages left
+out). It compares the fake hashed vectors the smoke eval uses with the real model:
+
+| Measure | Fake vectors | `gemini-embedding-001` |
+|---|---|---|
+| Cited passages retrieved | 93.3% (97 of 104) | **98.1% (102 of 104)** |
+| Tickets with every cited passage | 87.3% (48 of 55) | 96.4% (53 of 55) |
+| Cited passages found by the intent rules alone | 80.8% (84 of 104) | 80.8% (84 of 104) |
+
+The intent rules alone find 81%; the vector search supplies the rest, and the real model finds five
+more than the fake one. The two tickets still missing a passage are both messages about two topics:
+T007 (a refund for a cancelled order) does not get CAN-5.1, and T030 (order status plus a possible
+return) does not get RET-1.1. In both, the missing passage belongs to the secondary topic.
+
+Limits: 104 passages is a small sample (two misses move the rate about two points, and the 95%
+interval is roughly 93% to 99.5%); the draft is handed about 9 passages on average, so part of the
+recall is a wide net, and whether the extra passages distract the drafter is not measured; the
+labels and the policy were written by the same person; and it is one run.
 
 What exists today is the smoke run (2026-10-22, `smoke-622461a4`, policy v1.1). It replays recorded
 fixtures with seeded mistakes, so it tests the harness, not a model. Two of its numbers are real
@@ -192,7 +232,7 @@ measurements:
 | Check | Result |
 |---|---|
 | Keyword baseline, intent accuracy (78 labeled tickets) | 0.795 (95% CI 0.69 to 0.87) |
-| Keyword baseline, escalation recall (28 tickets) | 0.500 (0.33 to 0.67) |
+| Keyword baseline, escalation recall (29 tickets) | 0.517 (0.34 to 0.69) |
 | Grounding validator on 40 seeded bad drafts | 40 caught, right rule reported for all 40 |
 | Grounding validator on 24 good drafts | none wrongly blocked |
 
@@ -208,7 +248,7 @@ by the developer, so results on real traffic may differ. Full runs are saved und
 | Local | `make up` | Docker Compose |
 | CI | every pull request | GitHub Actions, no live model |
 | Staging | merge to `develop` | Render, via the `Staging Deploy` workflow |
-| Release | tag `v*` on `main` | Builds version-tagged images and publishes a GitHub Release. Nothing is deployed: staging is the only running environment. |
+| Release | tag `v*` on `main` | Builds version-tagged images and publishes a GitHub Release. Nothing is deployed: staging is the only running environment. First release: [v1.0.0](https://github.com/shindeaditya07/triage_automation_ecommerce/releases/tag/v1.0.0). |
 
 The flow is `feature/*` to `develop` to `release/*` to `main`, by pull request. Staging runs two
 Render services (API and mock store), a managed Postgres with pgvector, and a Static Site for the
@@ -230,6 +270,8 @@ For what to do when something breaks, read [docs/runbook.md](docs/runbook.md).
 | [docs/grounding.md](docs/grounding.md) | The ten grounding rules and the judge |
 | [docs/policies.md](docs/policies.md) | Store policy with stable IDs, cited in every draft |
 | [docs/ticket-api.md](docs/ticket-api.md), [docs/frontend-api.md](docs/frontend-api.md) | API used by the web app |
+| [docs/retrieval.md](docs/retrieval.md) | Which policy passages a draft may draw on |
+| [docs/evals.md](docs/evals.md) | The smoke and live evaluations and how to run them |
 | [docs/metrics.md](docs/metrics.md) | How each dashboard number is computed |
 | [docs/auth.md](docs/auth.md), [docs/security-headers-and-a11y.md](docs/security-headers-and-a11y.md) | Login and browser security |
 | [docs/runbook.md](docs/runbook.md) | Operations |
@@ -254,8 +296,23 @@ For what to do when something breaks, read [docs/runbook.md](docs/runbook.md).
 - **Free-tier hosting sleeps.** A sleeping Render service delays the first request.
 - **Privacy review not done.** The system stores customer personal data. Check it against India's
   DPDP Act with a qualified person before using it with real customers.
-- **Synthetic evaluation data.** See above.
-- **No data clean-up yet.** `RETENTION_DAYS` is a setting, but nothing deletes old data.
+- **Synthetic evaluation data.** See above. No real store owner has used the drafts, so whether an
+  owner would trust and send them is not measured.
+- **Grounding is mostly pattern matching.** Rules G-3 and G-5 are lists of phrases, so a promise
+  worded in a way the lists miss can pass. The judge model is a second check, but it is the same
+  model family as the drafter in the measured runs, which weakens it. An owner can also send over a
+  warning by giving a written reason; that is recorded, not blocked.
+- **Failure handling is not tested end to end.** Retries, the circuit breaker and the job sweeper
+  have unit and database tests, but `make resilience` (stopping the database and killing the API
+  under load) is still a stub.
+- **Messages about two topics.** Policy passages come from the one intent the classifier picks plus
+  the closest by meaning. In the real-embedding check, the secondary topic's passage was missed in
+  both tickets that failed (T007, T030).
+- **Retention erases, it does not archive.** A daily job overwrites the customer's address, name,
+  message, order data and every reply text on tickets older than `RETENTION_DAYS` (default 90),
+  whatever their status, so an unanswered old ticket is erased too. Audit entries stay (they hold
+  no customer text) and erased tickets drop out of the metrics, so figures for a period older than
+  the retention window shrink. There is no customer-requested erasure yet.
 
 ## License
 

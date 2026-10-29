@@ -2,6 +2,7 @@
 
 from dataclasses import replace
 from datetime import UTC, datetime
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import text
@@ -223,3 +224,77 @@ async def test_a_rejected_draft_is_never_sent(engine: AsyncEngine) -> None:
     await store.reject(ticket_id, state, "not good enough", OWNER, NOW)
     assert await store.mock_send(ticket_id, NOW) is False
     assert (await statuses(engine, ticket_id))[0] == "rejected"
+
+
+async def escalate(engine: AsyncEngine, ticket_id) -> None:  # type: ignore[no-untyped-def]
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "UPDATE tickets SET status = 'escalated', escalation_reason = 'legal_threat' "
+                "WHERE ticket_id = :t"
+            ),
+            {"t": ticket_id},
+        )
+
+
+async def test_an_owner_reply_is_an_approved_owner_draft_and_is_mock_sent(
+    engine: AsyncEngine,
+) -> None:
+    ticket_id = await drafted(engine)
+    await escalate(engine, ticket_id)
+    store = ReviewStore(engine)
+    state = await store.load_escalated(ticket_id)
+    assert state is not None and state.ticket_status is TicketStatus.ESCALATED
+
+    await store.owner_reply(ticket_id, state, "My own reply", OWNER, NOW, None)
+    assert await store.mock_send(ticket_id, NOW) is True
+
+    async with engine.connect() as conn:
+        draft = (
+            await conn.execute(
+                text(
+                    "SELECT draft_id, attempt, kind, review_status, final_text, reviewed_by, "
+                    "sent_at FROM drafts WHERE ticket_id = :t ORDER BY attempt DESC LIMIT 1"
+                ),
+                {"t": ticket_id},
+            )
+        ).one()
+        status = (
+            await conn.execute(
+                text("SELECT status FROM tickets WHERE ticket_id = :t"), {"t": ticket_id}
+            )
+        ).scalar_one()
+        kinds = [
+            row.event_type
+            for row in await conn.execute(
+                text("SELECT event_type FROM audit_log WHERE ticket_id = :t ORDER BY event_id"),
+                {"t": ticket_id},
+            )
+        ]
+    assert draft.draft_id == state.draft_id
+    assert (draft.attempt, draft.kind, draft.review_status) == (2, "owner", "approved")
+    assert (draft.final_text, draft.reviewed_by) == ("My own reply", OWNER)
+    assert draft.sent_at is not None
+    assert status == "sent"
+    assert kinds[-2:] == ["ticket.owner_replied", "ticket.mock_sent"]
+
+
+async def test_an_escalated_ticket_is_answered_once(engine: AsyncEngine) -> None:
+    ticket_id = await drafted(engine)
+    await escalate(engine, ticket_id)
+    store = ReviewStore(engine)
+    state = await store.load_escalated(ticket_id)
+    assert state is not None
+    await store.owner_reply(ticket_id, state, "First", OWNER, NOW, None)
+    with pytest.raises(NotOpen):
+        await store.owner_reply(ticket_id, state, "Second", OWNER, NOW, None)
+
+
+async def test_a_ticket_that_is_not_escalated_takes_no_owner_reply(engine: AsyncEngine) -> None:
+    ticket_id = await drafted(engine)
+    store = ReviewStore(engine)
+    state = await store.load_escalated(ticket_id)
+    assert state is not None and state.ticket_status is TicketStatus.DRAFTED
+    with pytest.raises(NotOpen):
+        await store.owner_reply(ticket_id, state, "Too early", OWNER, NOW, None)
+    assert await store.load_escalated(uuid4()) is None

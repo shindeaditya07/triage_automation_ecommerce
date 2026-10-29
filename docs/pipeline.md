@@ -32,11 +32,12 @@ owner with **no draft** when ANY of these holds (spec 14.1):
 |---|---|
 | `abusive`, `legal_threat`, `suspected_fraud` | the classifier flag OR the keyword backstop (ESC-8.2) |
 | `prompt_injection` | the classifier flag OR the structural scan (`escalation/injection.py`) |
+| `safety` | the message describes a hazard or an injury: smoke, a burning smell, sparks, an electric shock, a fire, an explosion, a gas leak, a hospital visit. Deterministic scan in `escalation/safety.py` (no classifier flag, so a model that calls it a warranty claim cannot lower it). A product word such as "smoke grey" or "fireproof" does not match |
 | `non_english` | 30% or more of the letters are not Latin (Hindi, Marathi, Tamil, Arabic and so on). Another language in Latin letters is not caught; see `escalation/language.py` |
 | `low_confidence` | confidence strictly below 0.70 |
 | `intent_other` | intent is `other` |
 
-Two independent sources back the first four, so a flag the model missed is still caught. Flags
+Two independent sources back the first four (`safety` is the deterministic scan alone), so a flag the model missed is still caught. Flags
 the deterministic checks found are added to the ticket's flags. All reasons that apply are
 recorded, comma-joined, in `escalation_reason`, and the audit event `ticket.escalated` (stage
 `pre_lookup`) lists the backstop rules and injection signals that matched. The classification is
@@ -125,7 +126,9 @@ the suggestion-only one.
    passage escalates as `retrieval_failed`.
 2. **Ask the drafter** for a reply. It sees the customer's subject and message in data blocks,
    this customer's order (the sender's email address is removed), the passages, and the store's
-   sign-off. Nothing else.
+   sign-off. Nothing else. The code then writes any ISO date or timestamp in the reply as a plain
+   date in Indian time ("28 October 2026", no time of day; `grounding/plain_dates.py`) and adds
+   the sign-off, before grounding runs.
 3. **An invalid answer is tried once more** with the field errors put back in front of the model.
    Two invalid answers in a row escalate as `draft_invalid_output`; any other model failure
    escalates with its own reason.

@@ -61,3 +61,11 @@ separately as a **provider failure**:
   for real traffic.
 - Retrieval in the report still uses the harness's hashed embeddings, not the live embedder.
 - The mock store has no real latency, so seconds per ticket is the model's time, not the system's.
+
+## Retrieval with the real embedding model
+
+`make eval-retrieval MAX_COST_INR=5 CPM=20` (`evals/retrieval_live.py`) measures retrieval recall
+twice over the labeled tickets that get a draft, once with the fake hashed vectors the smoke run
+uses and once with the configured embedding model, and prints both side by side with the tickets
+that miss a cited passage. It embeds the policy once and each ticket once, and stops if spend passes
+the ceiling. The 2026-10-28 result is in the README.
