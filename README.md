@@ -9,6 +9,11 @@ or rejects every reply. Nothing is sent without that decision.
 It is built around a fictional Indian home goods store, **Kaveri Home Goods**, and uses a mock
 order store. The pipeline does not depend on that store: it needs an order API and a policy document.
 
+**Status:** version 1.0.0, running on a staging environment only. There is no production
+deployment, the store is a mock, and "send" records a mock send without emailing anyone. It is a
+portfolio project with synthetic data, not something to point at real customers (see
+[Known limitations](#known-limitations)).
+
 [![CI](https://github.com/shindeaditya07/triage_automation_ecommerce/actions/workflows/ci.yml/badge.svg)](https://github.com/shindeaditya07/triage_automation_ecommerce/actions/workflows/ci.yml)
 
 ## Contents
@@ -31,7 +36,7 @@ order store. The pipeline does not depend on that store: it needs an order API a
 2. **Classifies** it: one of ten intents, an urgency, a confidence and flags.
 3. **Escalates early**, in plain code with no model call: abusive tone, a legal threat, suspected
    fraud, a prompt injection, low confidence, or no policy workflow. These go to the owner with no
-   draft.
+   draft; the owner can write a reply on the ticket page (checked like an edit, mock send).
 4. **Looks up the order**, but only if the sender owns it. A message quoting someone else's order
    is escalated and no order data is kept.
 5. **Escalates again** with the order known: a missing order, a high-value order, a repeat
@@ -45,6 +50,7 @@ order store. The pipeline does not depend on that store: it needs an order API a
 9. **Shows the owner** the message, the draft and the evidence side by side. Edits are re-checked
    as the owner types, and sending over a warning needs a written reason.
 10. **Records everything** in an audit log and a metrics dashboard computed from stored data.
+    Ticket data older than `RETENTION_DAYS` (90 by default) is erased by a daily job.
 
 ## Architecture
 
@@ -139,6 +145,7 @@ make lint          # ruff, mypy, eslint, prettier
 make test          # backend and frontend tests, no network, no live model
 make eval-smoke    # eval harness on recorded fixtures (what CI runs)
 make eval MAX_COST_INR=100 CPM=10   # live eval (costs money; see docs/evals.md)
+make eval-retrieval MAX_COST_INR=5 CPM=20   # retrieval recall with the real embedding model
 make audit         # pip-audit and npm audit
 make policy-check  # policy constants match the locked policies.md
 ```
@@ -263,6 +270,8 @@ For what to do when something breaks, read [docs/runbook.md](docs/runbook.md).
 | [docs/grounding.md](docs/grounding.md) | The ten grounding rules and the judge |
 | [docs/policies.md](docs/policies.md) | Store policy with stable IDs, cited in every draft |
 | [docs/ticket-api.md](docs/ticket-api.md), [docs/frontend-api.md](docs/frontend-api.md) | API used by the web app |
+| [docs/retrieval.md](docs/retrieval.md) | Which policy passages a draft may draw on |
+| [docs/evals.md](docs/evals.md) | The smoke and live evaluations and how to run them |
 | [docs/metrics.md](docs/metrics.md) | How each dashboard number is computed |
 | [docs/auth.md](docs/auth.md), [docs/security-headers-and-a11y.md](docs/security-headers-and-a11y.md) | Login and browser security |
 | [docs/runbook.md](docs/runbook.md) | Operations |
@@ -287,7 +296,15 @@ For what to do when something breaks, read [docs/runbook.md](docs/runbook.md).
 - **Free-tier hosting sleeps.** A sleeping Render service delays the first request.
 - **Privacy review not done.** The system stores customer personal data. Check it against India's
   DPDP Act with a qualified person before using it with real customers.
-- **Synthetic evaluation data.** See above.
+- **Synthetic evaluation data.** See above. No real store owner has used the drafts, so whether an
+  owner would trust and send them is not measured.
+- **Grounding is mostly pattern matching.** Rules G-3 and G-5 are lists of phrases, so a promise
+  worded in a way the lists miss can pass. The judge model is a second check, but it is the same
+  model family as the drafter in the measured runs, which weakens it. An owner can also send over a
+  warning by giving a written reason; that is recorded, not blocked.
+- **Failure handling is not tested end to end.** Retries, the circuit breaker and the job sweeper
+  have unit and database tests, but `make resilience` (stopping the database and killing the API
+  under load) is still a stub.
 - **Messages about two topics.** Policy passages come from the one intent the classifier picks plus
   the closest by meaning. In the real-embedding check, the secondary topic's passage was missed in
   both tickets that failed (T007, T030).

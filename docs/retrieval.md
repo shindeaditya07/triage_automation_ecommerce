@@ -1,6 +1,6 @@
 # Policy retrieval
 
-Which passages of `docs/policies.md` a draft may draw on. The draft step (a later branch) calls
+Which passages of `docs/policies.md` a draft may draw on. The draft step calls
 `retrieve()` once per ticket and stores the returned IDs in `drafts.retrieved_passage_ids`.
 
 ## The index (`services/api/retrieval/index.py`)
