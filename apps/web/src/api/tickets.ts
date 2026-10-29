@@ -30,6 +30,7 @@ export type AuditEvent = components["schemas"]["AuditEvent"];
 export type RuleFailure = components["schemas"]["RuleFailure"];
 export type SaveEditRequest = components["schemas"]["SaveEditRequest"];
 export type ApproveRequest = components["schemas"]["ApproveRequest"];
+export type OwnerReplyRequest = components["schemas"]["OwnerReplyRequest"];
 
 export function useTicket(ticketId: string) {
   return useQuery({
@@ -109,6 +110,21 @@ export function useReject(ticketId: string) {
         api.POST("/api/v1/tickets/{ticket_id}/reject", {
           params: { path: { ticket_id: ticketId } },
           body: { reason },
+        }),
+      ),
+    onSuccess: after,
+  });
+}
+
+/** The owner's own reply to an escalated ticket. It is checked, recorded and mock-sent. */
+export function useOwnerReply(ticketId: string) {
+  const after = useAfterReview(ticketId);
+  return useMutation({
+    mutationFn: (body: OwnerReplyRequest) =>
+      unwrap(
+        api.POST("/api/v1/tickets/{ticket_id}/owner-reply", {
+          params: { path: { ticket_id: ticketId } },
+          body,
         }),
       ),
     onSuccess: after,

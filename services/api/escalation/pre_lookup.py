@@ -6,6 +6,9 @@ missed model flag does not mean a missed escalation:
 
 - abusive tone, a legal threat, suspected fraud, or a prompt injection, as the classifier flagged
   it OR the keyword backstop (ESC-8.2) or the structural injection scan found it;
+- the message describes a hazard or an injury (`safety`, see `safety.py`): smoke, a burning smell,
+  sparks, an electric shock, a fire. A replacement or a request for photos is the wrong first
+  answer, so the owner reads it first;
 - the message is mostly written in a non-Latin script (`non_english`), whatever the model made
   of it;
 - classifier confidence below 0.70;
@@ -20,6 +23,7 @@ from pydantic import Field
 from services.api.escalation.injection import scan_injection
 from services.api.escalation.keyword_backstop import scan
 from services.api.escalation.language import is_non_english
+from services.api.escalation.safety import scan_safety
 from services.api.models.common import StrictModel
 from services.api.models.enums import Flag, Intent
 from services.api.models.ticket import Classification
@@ -44,6 +48,7 @@ class PreLookupDecision(StrictModel):
     )
     backstop_rules: list[str] = Field(default_factory=list)
     injection_signals: list[str] = Field(default_factory=list)
+    safety_signals: list[str] = Field(default_factory=list)
 
     @property
     def reason(self) -> str:
@@ -53,6 +58,7 @@ class PreLookupDecision(StrictModel):
 def decide(classification: Classification, subject: str | None, body: str) -> PreLookupDecision:
     backstop = scan(subject, body)
     injection = scan_injection(subject, body)
+    safety = scan_safety(subject, body)
 
     flags = list(classification.flags)
     for flag in [*backstop.flags, *([Flag.PROMPT_INJECTION_SUSPECTED] if injection else [])]:
@@ -60,6 +66,8 @@ def decide(classification: Classification, subject: str | None, body: str) -> Pr
             flags.append(flag)
 
     reasons = [reason for flag, reason in _FLAG_REASONS if flag in flags]
+    if safety:
+        reasons.append("safety")
     if is_non_english(subject, body):
         reasons.append("non_english")
     if classification.confidence < CONFIDENCE_FLOOR:
@@ -73,4 +81,5 @@ def decide(classification: Classification, subject: str | None, body: str) -> Pr
         flags=flags,
         backstop_rules=[match.rule_id for match in backstop.matches],
         injection_signals=injection,
+        safety_signals=safety,
     )

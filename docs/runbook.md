@@ -183,8 +183,13 @@ None is set up. Staging is free and sleeps, and pinging it keeps it awake and us
 
 ## Data and retention
 
-`RETENTION_DAYS` (90) is a setting, but **nothing deletes old data yet**: the clean-up job is not
-built, so tickets, drafts, snapshots and audit entries are kept until someone removes them. Customer text
-is stored after masking card, bank, UPI and Aadhaar numbers; the original text is not kept.
-Audit entries cannot be deleted, so a ticket with an audit trail cannot be removed by hand. Ask
-before deleting production data.
+`RETENTION_DAYS` (default 90) is enforced by a daily `retention_sweep` job. The API queues one per
+UTC day (checked hourly, so a restart or outage catches up) and its worker runs it. For every
+ticket received before the cutoff it overwrites the customer's address, name, subject, message,
+attachment list, order data and all draft text, sets `deleted_at`, and writes a
+`ticket.retention_erased` audit entry; each run also writes a `retention.sweep` entry with the
+count. The ticket row stays because the audit log is append-only and points at it. It erases by age
+whatever the ticket's status, and erased tickets disappear from the ticket list and the metrics.
+Customer text is stored after masking card, bank, UPI and Aadhaar numbers; the original text is
+not kept. To see whether it is running, look for `retention.sweep` in a ticket-less audit query or
+`retention sweep erased` in the API log. Ask before deleting production data by hand.

@@ -75,6 +75,7 @@ def make_process_ticket_handler(
                         "reasons": decision.reasons,
                         "backstop_rules": decision.backstop_rules,
                         "injection_signals": decision.injection_signals,
+                        "safety_signals": decision.safety_signals,
                     },
                 )
                 log.info("ticket escalated before lookup: %s", decision.reason)

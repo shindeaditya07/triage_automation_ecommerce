@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { useAudit, useTicket, type TicketDetail } from "../api/tickets";
 import { DraftEditor } from "../components/DraftEditor";
 import { ActivityList, EvidencePanel } from "../components/EvidencePanel";
+import { OwnerReply } from "../components/OwnerReply";
 import { ApproveDialog, RejectDialog } from "../components/ReviewDialogs";
 import { humanize } from "../format";
 import { useTitle } from "../hooks/useTitle";
@@ -89,10 +90,13 @@ function TicketView({
         <time dateTime={ticket.received_at}>{new Date(ticket.received_at).toLocaleString()}</time>{" "}
         <span className="badge muted">{humanize(ticket.status)}</span>
       </p>
-      {ticket.escalation_reason && (
+      {ticket.escalation_reason && ticket.status === "escalated" && (
         <p className="banner danger" role="alert">
           Escalated: {humanize(ticket.escalation_reason)}
         </p>
+      )}
+      {ticket.escalation_reason && ticket.status !== "escalated" && (
+        <p className="banner caution">Flagged: {humanize(ticket.escalation_reason)}</p>
       )}
       {ticket.failure_reason && (
         <p className="banner danger" role="alert">
@@ -119,7 +123,15 @@ function TicketView({
 
         <section aria-label="Draft reply" className="panel">
           <h2>Draft reply</h2>
-          {!draft && <p className="hint">There is no draft for this ticket.</p>}
+          {!draft && ticket.status !== "escalated" && (
+            <p className="hint">There is no draft for this ticket.</p>
+          )}
+          {!draft && ticket.status === "escalated" && (
+            <OwnerReply ticketId={ticket.ticket_id} originalViewed={viewed} />
+          )}
+          {draft?.kind === "owner" && (
+            <p className="banner caution">You wrote this reply. No AI draft was involved.</p>
+          )}
           {draft?.kind === "fallback_template" && (
             <p className="banner caution">
               This is the standard fallback reply. The AI draft failed its checks.

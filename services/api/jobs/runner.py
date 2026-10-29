@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from datetime import timedelta
 
 from services.api.clock import Clock
-from services.api.jobs.store import JobStore
+from services.api.jobs.store import JobStore, input_hash
 from services.api.jobs.worker import Handler, JobWorker, sleep_or_stop
 from services.api.models.enums import JobType
 from services.api.settings import JobSettings
@@ -24,6 +24,7 @@ class JobRunner:
         settings: JobSettings,
         clock: Clock,
     ) -> None:
+        self._handlers = handlers
         self._store = store
         self._settings = settings
         self._clock = clock
@@ -43,6 +44,25 @@ class JobRunner:
         if requeued or dead:
             log.warning("job sweep: %d re-queued, %d gave up", requeued, dead)
 
+    async def schedule_retention(self) -> None:
+        """Queue today's retention sweep. The day is part of the job's identity, so asking again
+        the same UTC day adds nothing. A failure is logged and tried again next interval."""
+        today = self._clock().date().isoformat()
+        try:
+            await self._store.enqueue(
+                JobType.RETENTION_SWEEP,
+                ticket_id=None,
+                input_digest=input_hash({"day": today}),
+                now=self._clock(),
+            )
+        except Exception:
+            log.exception("could not queue the retention sweep")
+
+    async def _retention_forever(self) -> None:
+        while not self._stop.is_set():
+            await self.schedule_retention()
+            await sleep_or_stop(self._stop, self._settings.retention_check_interval_seconds)
+
     async def _sweep_forever(self) -> None:
         while not self._stop.is_set():
             await sleep_or_stop(self._stop, self._settings.sweep_interval_seconds)
@@ -59,6 +79,8 @@ class JobRunner:
             ),
             asyncio.create_task(self._sweep_forever(), name="job-sweeper"),
         ]
+        if JobType.RETENTION_SWEEP in self._handlers:
+            self._tasks.append(asyncio.create_task(self._retention_forever(), name="retention"))
 
     async def stop(self, grace: float = SHUTDOWN_GRACE_SECONDS) -> None:
         """Let the job in progress finish if it can within `grace` seconds, then stop. A job

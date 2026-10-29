@@ -228,6 +228,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tickets/{ticket_id}/owner-reply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Owner Reply
+         * @description Answer an escalated ticket yourself. Checked like an edit; recorded and mock-sent.
+         */
+        post: operations["owner_reply_api_v1_tickets__ticket_id__owner_reply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tickets/{ticket_id}/reject": {
         parameters: {
             query?: never;
@@ -401,7 +421,7 @@ export interface components {
          * DraftKind
          * @enum {string}
          */
-        DraftKind: "llm" | "fallback_template";
+        DraftKind: "llm" | "fallback_template" | "owner";
         /** DraftView */
         DraftView: {
             /** Attempt */
@@ -539,6 +559,20 @@ export interface components {
             overridden_rules: string[];
             /** Reason */
             reason: string;
+        };
+        /**
+         * OwnerReplyRequest
+         * @description The owner's own reply to an escalated ticket, which has no draft.
+         */
+        OwnerReplyRequest: {
+            /**
+             * Original Viewed
+             * @default false
+             */
+            original_viewed: boolean;
+            override?: components["schemas"]["OverrideInput"] | null;
+            /** Reply Text */
+            reply_text: string;
         };
         /**
          * ProposedAction
@@ -1172,6 +1206,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ValidateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    owner_reply_api_v1_tickets__ticket_id__owner_reply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OwnerReplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewOutcome"];
                 };
             };
             /** @description Validation Error */

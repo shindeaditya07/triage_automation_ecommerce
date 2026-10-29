@@ -9,7 +9,9 @@ so this only repairs what the model hands over.
 The model's own closing is removed first so the reply does not end with two. A trailing line counts
 as a closing only if it is blank, is the store name with a team word after it, or starts with a
 closing word ("regards", "thanks", "sincerely", ...) and either ends in a comma or is at most three
-words. A real last sentence such as "Thank you for contacting us." stays.
+words. A real last sentence such as "Thank you for contacting us." stays. A sign-off the model
+ran onto the end of its last sentence ("... next steps. Kaveri Home Goods Support") is cut off
+that line, otherwise the reply would end with it twice.
 """
 
 import re
@@ -60,10 +62,18 @@ def _is_closing(line: str, sign_off: str) -> bool:
     return line.rstrip().endswith(",") or len(words) <= _SHORT_CLOSING_WORDS
 
 
+def _strip_inline_sign_off(line: str, sign_off: str) -> str:
+    """The line without the exact sign-off the model ran onto its end, if it did."""
+    match = re.search(rf"\s{re.escape(sign_off)}\W*$", line, flags=re.IGNORECASE)
+    return line[: match.start()] if match else line
+
+
 def with_sign_off(reply_text: str, sign_off: str) -> str:
     """The reply with any closing of the model's own removed and the exact sign-off last."""
     lines = reply_text.rstrip().splitlines()
     while lines and _is_closing(lines[-1], sign_off):
         lines.pop()
+    if lines:
+        lines[-1] = _strip_inline_sign_off(lines[-1], sign_off)
     body = "\n".join(lines).rstrip()
     return f"{body}\n\n{sign_off}" if body else sign_off
