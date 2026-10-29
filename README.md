@@ -291,7 +291,11 @@ For what to do when something breaks, read [docs/runbook.md](docs/runbook.md).
 - **Messages about two topics.** Policy passages come from the one intent the classifier picks plus
   the closest by meaning. In the real-embedding check, the secondary topic's passage was missed in
   both tickets that failed (T007, T030).
-- **No data clean-up yet.** `RETENTION_DAYS` is a setting, but nothing deletes old data.
+- **Retention erases, it does not archive.** A daily job overwrites the customer's address, name,
+  message, order data and every reply text on tickets older than `RETENTION_DAYS` (default 90),
+  whatever their status, so an unanswered old ticket is erased too. Audit entries stay (they hold
+  no customer text) and erased tickets drop out of the metrics, so figures for a period older than
+  the retention window shrink. There is no customer-requested erasure yet.
 
 ## License
 

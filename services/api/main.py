@@ -33,6 +33,8 @@ from services.api.models.enums import JobType
 from services.api.pipeline.store import PipelineStore
 from services.api.pipeline.wiring import PipelineRuntime, build_pipeline
 from services.api.policy_source import loaded_passages
+from services.api.retention.handler import make_retention_handler
+from services.api.retention.store import RetentionStore
 from services.api.review.routes import router as review_router
 from services.api.review.service import ReviewService
 from services.api.review.store import ReviewStore
@@ -156,7 +158,13 @@ def create_app(
             # engine or handlers keeps control of both.
             if engine is None and database.engine is not None:
                 pipeline = build_pipeline(database.engine, clock)
-            handlers = pipeline.handlers if pipeline else {}
+            handlers = dict(pipeline.handlers) if pipeline else {}
+            if engine is None and database.engine is not None:
+                handlers[JobType.RETENTION_SWEEP] = make_retention_handler(
+                    RetentionStore(database.engine),
+                    (job_settings or JobSettings()).retention_days,
+                    clock,
+                )
         app.state.review = review_service or (
             ReviewService(
                 ReviewStore(database.engine),
