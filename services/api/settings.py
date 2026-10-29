@@ -123,6 +123,11 @@ class JobSettings(BaseSettings):
     job_poll_interval_seconds: float = Field(default=2.0, gt=0)
     # Set false to run the API without a worker in the same process.
     job_worker_enabled: bool = True
+    # How often the API asks for the day's retention sweep. At most one runs per UTC day, so this
+    # only decides how soon after a restart or an outage the missed one is queued.
+    retention_check_interval_seconds: int = Field(default=3600, gt=0)
+    # Tickets received longer ago than this are erased by the daily retention sweep.
+    retention_days: int = Field(default=90, ge=1)
 
 
 class StoreSettings(BaseSettings):
@@ -322,9 +327,6 @@ class Settings(
 
     # Mock store and time
     frozen_now: datetime | None = None
-
-    # Retention (the job settings are in JobSettings)
-    retention_days: int = Field(default=90, ge=1)
 
     # Policy
     policy_file_path: Path = Path("docs/policies.md")
