@@ -314,7 +314,7 @@ export interface paths {
         put?: never;
         /**
          * Retry Ticket
-         * @description Run a failed ticket again from where it stopped. 409 when it has not failed.
+         * @description Run a failed or model-escalated ticket again from where it stopped. 409 otherwise.
          */
         post: operations["retry_ticket_api_v1_tickets__ticket_id__retry_post"];
         delete?: never;

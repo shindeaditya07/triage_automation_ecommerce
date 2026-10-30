@@ -90,13 +90,16 @@ system.** If recording the send fails, the ticket stays `approved` (the approval
 `POST /api/v1/tickets/{id}/send` finishes it; calling it again, or on a ticket already sent, changes
 nothing.
 
-## Retry a failed ticket
+## Retry a failed or stalled ticket
 
-`POST /api/v1/tickets/{ticket_id}/retry` (owner only, CSRF header required) puts a `failed` ticket
-back at the stage it had reached (`drafted` if it has a draft, `classified` if it was classified,
-otherwise `new`), clears its failure reason, gives its job three fresh tries and answers
-`{"ticket_id", "status"}` with the status it resumed at. The audit log gets `ticket.retried`. 404
-for an unknown or erased ticket, 409 when the ticket has not failed.
+`POST /api/v1/tickets/{ticket_id}/retry` (owner only, CSRF header required) puts a `failed` ticket,
+or an `escalated` ticket that has no draft (the model was down or answered badly), back at the
+stage it had reached (`drafted` if it has a draft, `classified` if it was classified, otherwise
+`new`), clears its failure and escalation reasons, gives its job three fresh tries and answers
+`{"ticket_id", "status"}` with the status it resumed at. The audit log gets `ticket.retried`, with
+the status the ticket `was` in. 404 for an unknown or erased ticket, 409 for any other ticket: one
+still being processed, waiting on the owner, or already approved, sent or rejected. An escalated
+ticket that carries a draft is a suggestion for the owner, so it is refused too.
 
 ## Erase a customer
 
