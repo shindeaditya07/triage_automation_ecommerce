@@ -261,6 +261,21 @@ describe("accessibility", () => {
     expect(screen.queryByRole("link", { name: "Tickets" })).toBeNull();
   });
 
+  it("has a theme button beside the title that switches and remembers the mode", async () => {
+    open("/tickets");
+    await screen.findByText("48213907 - Return my water bottle");
+    const user = userEvent.setup();
+    const button = screen.getByRole("button", { name: /Switch to (dark|light) mode/ });
+    const before = document.documentElement.dataset.theme;
+    await user.click(button);
+    const after = document.documentElement.dataset.theme;
+    expect(after).toBeTruthy();
+    expect(after).not.toBe(before);
+    expect(window.localStorage.getItem("replydesk-theme")).toBe(after);
+    expect(await a11yProblems()).toEqual([]);
+    window.localStorage.clear();
+  });
+
   it("opens a ticket reached by a direct link with Back going to its own tab", async () => {
     open(`/tickets/${ID}`);
     const back = await screen.findByRole("link", { name: /Back to the queue/ });
