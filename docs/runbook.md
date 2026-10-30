@@ -39,7 +39,7 @@ checked". Deploys wait on `/healthz`, not `/readyz`, so a degraded instance stil
   - `job sweep: N re-queued, M gave up`: the sweeper found jobs whose worker vanished.
   - `pipeline disabled: ...`: drafting is off and the line says why.
   - `intake disabled: invalid settings [...]`: intake settings are wrong; the names are listed.
-- **The ticket's audit log** (web app, Audit log, or `/audit/<ticket id>`). It records each step,
+- **The ticket's audit log** (the Activity list on the ticket page, or `/audit/<ticket id>`). It records each step,
   and why a ticket escalated or failed.
 - **The ticket row**: `status`, `escalation_reason`, `failure_reason`.
 

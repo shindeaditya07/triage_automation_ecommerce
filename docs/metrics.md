@@ -3,7 +3,8 @@
 `GET /api/v1/metrics?start=YYYY-MM-DD&end=YYYY-MM-DD` (owner only) returns the spec section 18
 numbers for a range of IST days. Both dates are optional: the default is the last 30 days ending
 today. A range is at most 366 days. The page is `/metrics`, with a 7 day, 30 day and custom range
-and a CSV export.
+and a CSV export. The page shows no tile for time to draft or time to send; the API and the CSV
+export still carry them.
 
 Everything is computed on request from stored rows (`tickets`, `drafts` and the audit log), so no
 figure resets on a restart. Tickets are those *received* in the range.
