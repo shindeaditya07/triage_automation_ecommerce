@@ -250,6 +250,38 @@ describe("the ticket screen", () => {
     ).toBe(true);
   });
 
+  it("offers Retry on a failed ticket and asks the server to run it again", async () => {
+    const seen = app(
+      detail({ status: "failed", draft: null, failure_reason: "gave up after 3 attempt(s)" }),
+      (m, p) =>
+        m === "POST" && p.endsWith("/retry")
+          ? { body: { ticket_id: ID, status: "classified" } }
+          : undefined,
+    );
+    show();
+    await userEvent.click(await screen.findByRole("button", { name: "Retry processing" }));
+    await waitFor(() => expect(seen.some((r) => r.path.endsWith("/retry"))).toBe(true));
+    expect(seen.find((r) => r.path.endsWith("/retry"))!.method).toBe("POST");
+  });
+
+  it("shows why a retry was refused", async () => {
+    app(detail({ status: "failed", draft: null, failure_reason: "x" }), (m, p) =>
+      m === "POST" && p.endsWith("/retry")
+        ? { status: 409, body: { detail: "only a failed ticket can be retried" } }
+        : undefined,
+    );
+    show();
+    await userEvent.click(await screen.findByRole("button", { name: "Retry processing" }));
+    expect(await screen.findByText(/only a failed ticket can be retried/)).toBeTruthy();
+  });
+
+  it("has no Retry button on a ticket that has not failed", async () => {
+    app(detail());
+    show();
+    await screen.findByText("Please help with my order.");
+    expect(screen.queryByRole("button", { name: "Retry processing" })).toBeNull();
+  });
+
   it("offers only Approve and Edit on a reply waiting for review", async () => {
     app(detail());
     show();

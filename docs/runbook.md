@@ -93,8 +93,10 @@ checked". Deploys wait on `/healthz`, not `/readyz`, so a degraded instance stil
 - **Shows as:** status `failed`, with a `failure_reason`. This means the job used all three
   tries, or hit an error retrying cannot fix (for example, the order store answered outside its
   contract).
-- **Fix:** read the reason, fix the cause, and have the customer's message re-sent. There is no
-  retry button yet.
+- **Fix:** read the reason, fix the cause (for example, wake the order store), then open the
+  ticket and press **Retry processing**. The ticket goes back to the stage it had reached
+  (new, classified or drafted), its job gets three fresh tries, and the audit log records
+  `ticket.retried` with who pressed it. If it fails again, the reason shows again.
 
 ### Model provider failing
 

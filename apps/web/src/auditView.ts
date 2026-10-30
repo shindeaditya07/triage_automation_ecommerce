@@ -125,6 +125,9 @@ export function describeEvent(event: AuditEvent): EventView {
     case "ticket.rejected":
       add(str(p.reason) && `Reason: ${p.reason}`);
       return { label: "Owner rejected", tone: "danger", lines };
+    case "ticket.retried":
+      add(str(p.resumed_at) && `Resumed at: ${humanize(String(p.resumed_at))}`);
+      return { label: "Owner retried processing", tone: "normal", lines };
     case "ticket.mock_sent":
       add("Recorded as sent. Nothing left the system.");
       return { label: "Mock send", tone: "ok", lines };

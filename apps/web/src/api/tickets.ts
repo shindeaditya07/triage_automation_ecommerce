@@ -32,11 +32,16 @@ export type SaveEditRequest = components["schemas"]["SaveEditRequest"];
 export type ApproveRequest = components["schemas"]["ApproveRequest"];
 export type OwnerReplyRequest = components["schemas"]["OwnerReplyRequest"];
 
+/** A ticket still being processed is read again every few seconds, so a retry shows its result. */
+const PROCESSING_POLL_MS = 3_000;
+
 export function useTicket(ticketId: string) {
   return useQuery({
     queryKey: ["ticket", ticketId],
     queryFn: () =>
       unwrap(api.GET("/api/v1/tickets/{ticket_id}", { params: { path: { ticket_id: ticketId } } })),
+    refetchInterval: (query) =>
+      ["new", "classified"].includes(query.state.data?.status ?? "") ? PROCESSING_POLL_MS : false,
   });
 }
 
@@ -96,6 +101,20 @@ export function useApprove(ticketId: string) {
         api.POST("/api/v1/tickets/{ticket_id}/approve", {
           params: { path: { ticket_id: ticketId } },
           body,
+        }),
+      ),
+    onSuccess: after,
+  });
+}
+
+/** Run a failed ticket again from where it stopped. */
+export function useRetry(ticketId: string) {
+  const after = useAfterReview(ticketId);
+  return useMutation({
+    mutationFn: () =>
+      unwrap(
+        api.POST("/api/v1/tickets/{ticket_id}/retry", {
+          params: { path: { ticket_id: ticketId } },
         }),
       ),
     onSuccess: after,
