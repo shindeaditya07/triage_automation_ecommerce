@@ -30,7 +30,7 @@ portfolio project with synthetic data, not something to point at real customers 
 
 ## What it does
 
-1. **Takes in** a message from the contact form or an HMAC-signed email webhook. Card, UPI and
+1. **Takes in** a message from the public contact page (`/contact`) or an HMAC-signed email webhook. Card, UPI and
    Aadhaar patterns are masked before anything is stored or sent to a model, and a repeat of the
    same message is one ticket.
 2. **Classifies** it: one of ten intents, an urgency, a confidence and flags.

@@ -36,6 +36,22 @@ a ticket, repeated an earlier one or was caught by the honeypot. The response te
 about what the server did. Refusals are `429` (rate limit, with `Retry-After`), `413` (too large),
 `415` (not JSON) and `422` (invalid; the reply names the fields, never echoes the input).
 
+## The customer contact page
+
+`/contact` on the web app is a public page (no sign-in) that posts to the form endpoint above. A
+customer gives an email address and a message, and can add a name, a subject and an **order number**.
+The order number travels as `order_id`; the pipeline looks the order up and checks the customer's
+address against it, so nothing about the order is shown on the page. The page generates one
+`submission_id` per visit (a retry after an error is still one ticket), hides the honeypot field
+from people and screen readers, and answers every refusal in plain words (429, 413, 422, 503).
+Attachments are not offered, because only their metadata would be stored.
+
+Because the form endpoint is rate limited per address (3 a minute, 10 an hour), a store that wants to
+push many customers' messages from its own server should use the signed email endpoint below, which
+is not rate limited per address. A browser page on a *different* site cannot call the form endpoint
+yet: the API has no CORS rules, so link to `/contact` instead. Step-by-step: the "customer contact"
+guide.
+
 ## The email endpoint
 
 ```json
