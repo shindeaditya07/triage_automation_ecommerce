@@ -16,7 +16,7 @@ export function AuditPage() {
     <div className="app">
       <header className="topbar">
         <h1>ReplyDesk</h1>
-        <Link to="/">← Back to the queue</Link>
+        <Link to="/tickets">← Back to the queue</Link>
       </header>
       <main id="main" tabIndex={-1} className="wide">
         <h2 className="ticket-title">Audit log</h2>

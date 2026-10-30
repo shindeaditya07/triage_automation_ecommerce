@@ -14,3 +14,15 @@ The web app never hand-writes a request or response type.
   never on a 4xx; writes are never retried automatically. Use `unwrap(api.GET(...))` in a
   `queryFn`/`mutationFn` so an error status becomes an `ApiError` carrying the server's message.
 - **Auth hooks** (`src/api/auth.ts`): `useMe`, `useLogin`, `useLogout`.
+
+## Pages
+
+| Address | Page |
+|---|---|
+| `/` | Metrics (the home page). `/metrics` redirects here. |
+| `/tickets` | The ticket queue. A "Tickets" link in every owner page's header opens it. |
+| `/tickets/:id`, `/audit/:id?`, `/login` | A ticket, the audit log, sign-in |
+| `/contact` | Public: the customer contact form (no sign-in) |
+
+Every owner page shares one header (`TopBar`): Metrics, Tickets, Audit log, the signed-in address and
+Sign out.

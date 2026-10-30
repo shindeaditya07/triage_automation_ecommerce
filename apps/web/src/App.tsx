@@ -32,9 +32,10 @@ function FocusOnNavigate() {
   return null;
 }
 
-export function App() {
+/** The owner pages, with Metrics as the home page and the ticket queue at /tickets. */
+export function AppRoutes() {
   return (
-    <BrowserRouter>
+    <>
       <SkipLink />
       <FocusOnNavigate />
       <Routes>
@@ -42,6 +43,14 @@ export function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route
           path="/"
+          element={
+            <RequireOwner>
+              <MetricsPage />
+            </RequireOwner>
+          }
+        />
+        <Route
+          path="/tickets"
           element={
             <RequireOwner>
               <QueuePage />
@@ -56,14 +65,7 @@ export function App() {
             </RequireOwner>
           }
         />
-        <Route
-          path="/metrics"
-          element={
-            <RequireOwner>
-              <MetricsPage />
-            </RequireOwner>
-          }
-        />
+        <Route path="/metrics" element={<Navigate to="/" replace />} />
         <Route
           path="/tickets/:ticketId"
           element={
@@ -74,6 +76,14 @@ export function App() {
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+    </>
+  );
+}
+
+export function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
     </BrowserRouter>
   );
 }

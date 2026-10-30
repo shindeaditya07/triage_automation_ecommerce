@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 
 import { useMetrics } from "../api/metrics";
+import { TopBar } from "../components/TopBar";
 import { BarList, CostLine, StackedBars } from "../components/charts";
 import { daysBefore, duration, istToday, percent, rupees } from "../format";
 import { metricsCsv } from "../metricsCsv";
@@ -31,10 +31,7 @@ export function MetricsPage() {
 
   return (
     <div className="app">
-      <header className="topbar">
-        <h1>ReplyDesk</h1>
-        <Link to="/">← Back to the queue</Link>
-      </header>
+      <TopBar />
       <main id="main" tabIndex={-1} className="wide">
         <h2 className="ticket-title">Metrics</h2>
         <div className="range">
