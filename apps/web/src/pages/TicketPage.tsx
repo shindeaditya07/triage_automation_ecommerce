@@ -92,6 +92,9 @@ function TicketView({
   const draft = ticket.draft;
   const actionable =
     draft !== null && draft.review_status === "pending" && ticket.status === "drafted";
+  // A failed run, or an escalation with no draft (the model was down or answered badly), can be
+  // run again. An escalation that carries a draft is a suggestion for the owner, not a stall.
+  const retryable = ticket.status === "failed" || (ticket.status === "escalated" && draft === null);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -131,7 +134,7 @@ function TicketView({
           Processing failed: {ticket.failure_reason}
         </p>
       )}
-      {ticket.status === "failed" && <RetryButton ticketId={ticket.ticket_id} />}
+      {retryable && <RetryButton ticketId={ticket.ticket_id} />}
 
       <div className="detail-grid">
         <section aria-label="Customer message" className="panel">

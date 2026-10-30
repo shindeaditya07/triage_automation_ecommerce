@@ -10,7 +10,7 @@ from services.api.auth.store import InMemoryAuthStore
 from services.api.main import create_app
 from services.api.models.enums import TicketStatus
 from services.api.retry.service import RetryService
-from services.api.retry.store import NoSuchTicket, NotFailed
+from services.api.retry.store import NoSuchTicket, NotRetryable
 from tests.auth import conftest as auth
 from tests.auth.conftest import csrf, login
 
@@ -32,7 +32,7 @@ class FakeRetrier:
             self.calls.append((ticket_id, actor))
             return TicketStatus.CLASSIFIED
         if ticket_id == FINE:
-            raise NotFailed
+            raise NotRetryable
         raise NoSuchTicket
 
 

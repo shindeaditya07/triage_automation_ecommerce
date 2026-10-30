@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from services.api.jobs.store import JobStore
 from services.api.models.enums import JobStatus, JobType
-from services.api.retry.store import NoSuchTicket, NotFailed, RetryStore
+from services.api.retry.store import NoSuchTicket, NotRetryable, RetryStore
 from tests.db.jobs_support import T0, make_ticket, ticket_row
 from tests.db.test_review_store import drafted
 
@@ -98,12 +98,100 @@ async def test_a_ticket_with_a_draft_resumes_as_drafted(engine: AsyncEngine) -> 
     assert resumed.value == "drafted"
 
 
-async def test_a_ticket_that_has_not_failed_is_refused_and_left_alone(engine: AsyncEngine) -> None:
+async def test_a_ticket_still_being_processed_is_refused_and_left_alone(
+    engine: AsyncEngine,
+) -> None:
     ticket = await make_ticket(engine, "classified")
-    with pytest.raises(NotFailed):
+    with pytest.raises(NotRetryable):
         await RetryStore(engine, JobStore(engine)).retry(ticket, ACTOR, T0)
     assert (await ticket_row(engine, ticket))[0] == "classified"
     assert await audit_kinds(engine, ticket) == []
+
+
+async def escalate(engine: AsyncEngine, ticket_id, reason: str, intent: str | None) -> None:  # type: ignore[no-untyped-def]
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "UPDATE tickets SET status = 'escalated', escalation_reason = :reason,"
+                " intent = :intent, urgency = :urgency, confidence = :conf, sentiment = :sent"
+                " WHERE ticket_id = :id"
+            ),
+            {
+                "id": ticket_id,
+                "reason": reason,
+                "intent": intent,
+                "urgency": intent and "low",
+                "conf": intent and 0.9,
+                "sent": intent and "neutral",
+            },
+        )
+
+
+async def test_an_escalated_ticket_with_no_draft_runs_again(engine: AsyncEngine) -> None:
+    ticket = await make_ticket(engine)
+    jobs = JobStore(engine)
+    await escalate(engine, ticket, "llm_error:CircuitOpenError", None)
+
+    resumed = await RetryStore(engine, jobs).retry(ticket, ACTOR, T0)
+
+    assert resumed.value == "new"
+    async with engine.connect() as conn:
+        reason = await conn.scalar(
+            text("SELECT escalation_reason FROM tickets WHERE ticket_id = :id"), {"id": ticket}
+        )
+    assert reason is None
+    job = await jobs.claim("w1", T0)
+    assert job is not None and job.ticket_id == ticket
+    async with engine.connect() as conn:
+        payload = await conn.scalar(
+            text(
+                "SELECT payload FROM audit_log"
+                " WHERE ticket_id = :id AND event_type = 'ticket.retried'"
+            ),
+            {"id": ticket},
+        )
+    assert payload == {"resumed_at": "new", "was": "escalated"}
+
+
+async def test_an_escalated_ticket_that_was_classified_resumes_as_classified(
+    engine: AsyncEngine,
+) -> None:
+    ticket = await make_ticket(engine)
+    await escalate(engine, ticket, "llm_error:LLMRequestError", "return")
+
+    resumed = await RetryStore(engine, JobStore(engine)).retry(ticket, ACTOR, T0)
+
+    assert resumed.value == "classified"
+
+
+async def test_an_escalated_ticket_that_carries_a_draft_is_refused(engine: AsyncEngine) -> None:
+    ticket = await drafted(engine, 1)
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "UPDATE tickets SET status = 'escalated', escalation_reason = 'high_value'"
+                " WHERE ticket_id = :id"
+            ),
+            {"id": ticket},
+        )
+    with pytest.raises(NotRetryable):
+        await RetryStore(engine, JobStore(engine)).retry(ticket, ACTOR, T0)
+    assert (await ticket_row(engine, ticket))[0] == "escalated"
+
+
+@pytest.mark.parametrize("status", ["approved", "sent", "rejected", "drafted"])
+async def test_a_ticket_the_owner_has_acted_on_or_is_reviewing_is_refused(
+    engine: AsyncEngine, status: str
+) -> None:
+    ticket = await make_ticket(engine, "new")
+    async with engine.begin() as conn:
+        await conn.execute(
+            text("UPDATE tickets SET status = :s WHERE ticket_id = :id"),
+            {"s": status, "id": ticket},
+        )
+    with pytest.raises(NotRetryable):
+        await RetryStore(engine, JobStore(engine)).retry(ticket, ACTOR, T0)
+    assert (await ticket_row(engine, ticket))[0] == status
 
 
 async def test_an_unknown_or_erased_ticket_is_refused(engine: AsyncEngine) -> None:

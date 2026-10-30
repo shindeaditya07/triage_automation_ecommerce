@@ -122,8 +122,10 @@ checked". Deploys wait on `/healthz`, not `/readyz`, so a degraded instance stil
   `LLM_BREAKER_FAILURES` failures in a row it stops calling for `LLM_BREAKER_COOLDOWN_SECONDS`
   and escalates fast. A model failure never produces a draft.
 - **Fix:** a `4xx` other than 429 is a configuration problem: a wrong model name, a bad or
-  expired key, or no quota. Correct it and redeploy. Escalated tickets are not re-drafted; the
-  owner handles them or the customer re-sends.
+  expired key, or no quota. Correct it and redeploy. Escalated tickets are not re-drafted by
+  themselves: open each one and press **Retry processing** (offered on a failed ticket and on an
+  escalated one with no draft), or answer it yourself. After a burst of failures wait out the
+  breaker cooldown first, or the retry trips it again.
 - **A judge outage** discards the draft and escalates. It does not let an unchecked draft through.
 
 ### Cannot log in

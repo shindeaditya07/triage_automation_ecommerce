@@ -267,12 +267,36 @@ describe("the ticket screen", () => {
   it("shows why a retry was refused", async () => {
     app(detail({ status: "failed", draft: null, failure_reason: "x" }), (m, p) =>
       m === "POST" && p.endsWith("/retry")
-        ? { status: 409, body: { detail: "only a failed ticket can be retried" } }
+        ? {
+            status: 409,
+            body: {
+              detail: "only a failed ticket, or an escalated one with no draft, can be retried",
+            },
+          }
         : undefined,
     );
     show();
     await userEvent.click(await screen.findByRole("button", { name: "Retry processing" }));
-    expect(await screen.findByText(/only a failed ticket can be retried/)).toBeTruthy();
+    expect(
+      await screen.findByText(
+        /only a failed ticket, or an escalated one with no draft, can be retried/,
+      ),
+    ).toBeTruthy();
+  });
+
+  it("offers Retry on an escalated ticket that has no draft", async () => {
+    app(
+      detail({ status: "escalated", draft: null, escalation_reason: "llm_error:CircuitOpenError" }),
+    );
+    show();
+    expect(await screen.findByRole("button", { name: "Retry processing" })).toBeTruthy();
+  });
+
+  it("has no Retry button on an escalated ticket that carries a suggested draft", async () => {
+    app(detail({ status: "escalated", escalation_reason: "legal_threat" }));
+    show();
+    await screen.findByText("Please help with my order.");
+    expect(screen.queryByRole("button", { name: "Retry processing" })).toBeNull();
   });
 
   it("has no Retry button on a ticket that has not failed", async () => {
