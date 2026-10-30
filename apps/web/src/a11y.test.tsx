@@ -84,7 +84,7 @@ const audit = [
 ];
 
 function open(path: string, signedIn = true) {
-  stubApi((_, p) => {
+  const seen = stubApi((method, p) => {
     if (p === "/api/v1/auth/me")
       return signedIn
         ? { body: { email: "owner@example.com" } }
@@ -96,15 +96,19 @@ function open(path: string, signedIn = true) {
     if (p === `/api/v1/tickets/${ID}/draft/validate`)
       return { body: { passed: true, failures: [] } };
     if (p === "/api/v1/metrics") return { body: REPORT };
+    if (p === "/api/v1/tickets/form" && method === "POST") return { status: 202, body: {} };
     return undefined;
   });
   window.history.pushState({}, "", path);
   const queryClient = createQueryClient();
   queryClient.setDefaultOptions({ queries: { retry: false, refetchInterval: false } });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>,
+  return Object.assign(
+    render(
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>,
+    ),
+    { seen },
   );
 }
 
@@ -229,6 +233,32 @@ describe("accessibility", () => {
     expect(screen.getByRole("tab", { name: "Escalated" }).getAttribute("aria-selected")).toBe(
       "true",
     );
+  });
+
+  it("records a complaint on the contact page, reached from the queue, in the owner's words", async () => {
+    const { seen } = open("/tickets");
+    await screen.findByText("48213907 - Return my water bottle");
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("link", { name: "New complaint" }));
+
+    expect(await screen.findByRole("heading", { name: "New complaint" })).toBeTruthy();
+    expect(document.title).toBe("New complaint · ReplyDesk");
+    expect(screen.getByRole("link", { name: "Tickets" })).toBeTruthy(); // the owner's header
+    await user.type(screen.getByLabelText("Customer's email address"), "ravi@example.com");
+    await user.type(screen.getByLabelText("Message"), "Rang the shop, parcel is late.");
+    await user.click(screen.getByRole("button", { name: "Add complaint" }));
+
+    expect(await screen.findByText(/Complaint recorded/)).toBeTruthy();
+    const sent = seen.find((r) => r.path === "/api/v1/tickets/form")!;
+    expect(JSON.parse(sent.body)).toMatchObject({ email: "ravi@example.com", website: "" });
+    await user.click(screen.getByRole("link", { name: "Tickets" }));
+    await screen.findByText("48213907 - Return my water bottle");
+  });
+
+  it("shows a signed-in owner who opens /contact directly the plain customer page", async () => {
+    open("/contact");
+    expect(await screen.findByRole("heading", { name: "Contact us" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Tickets" })).toBeNull();
   });
 
   it("opens a ticket reached by a direct link with Back going to its own tab", async () => {

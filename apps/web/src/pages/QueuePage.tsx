@@ -1,10 +1,6 @@
-import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { PAGE_SIZE, useTickets } from "../api/tickets";
-import { ContactForm } from "../components/ContactForm";
-import { Modal } from "../components/Modal";
 import { TopBar } from "../components/TopBar";
 import { TicketRow } from "../components/TicketRow";
 import { useListKeys } from "../hooks/useListKeys";
@@ -24,8 +20,6 @@ export function QueuePage() {
     const target = new URL(queueAddress(tabId, pageIndex + 1), "http://x");
     setParams(target.searchParams, { replace: true });
   }
-  const [adding, setAdding] = useState(false);
-  const queryClient = useQueryClient();
   const tickets = useTickets(tab.statuses, page);
   const waking = useWakingUp(tickets.isPending);
   const items = tickets.data?.items ?? [];
@@ -40,9 +34,7 @@ export function QueuePage() {
   return (
     <div className="app">
       <TopBar>
-        <button type="button" onClick={() => setAdding(true)}>
-          New complaint
-        </button>
+        <Link to="/contact">New complaint</Link>
       </TopBar>
       <main id="main" tabIndex={-1}>
         <div
@@ -144,15 +136,6 @@ export function QueuePage() {
         </div>
         <p className="hint">Keys: J and K move down and up the list, Enter opens a ticket.</p>
       </main>
-      {adding && (
-        <Modal title="New complaint" onClose={() => setAdding(false)}>
-          <ContactForm
-            mode="owner"
-            onSent={() => void queryClient.invalidateQueries({ queryKey: ["tickets"] })}
-            onClose={() => setAdding(false)}
-          />
-        </Modal>
-      )}
     </div>
   );
 }
