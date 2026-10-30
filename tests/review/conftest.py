@@ -84,7 +84,7 @@ class FakeReviewStore:
         if override is not None:
             self.overrides.append(override)
 
-    async def approve(self, ticket_id, state, actor, now: datetime) -> str:  # type: ignore[no-untyped-def]
+    async def approve(self, ticket_id, state, actor, now: datetime, automatic=None) -> str:  # type: ignore[no-untyped-def]
         if not self.state.open or state.effective_text != self.state.effective_text:
             raise NotOpen
         self.state = replace(

@@ -122,6 +122,15 @@ export function describeEvent(event: AuditEvent): EventView {
         lines,
         block: p.edited === true ? (str(p.diff) ?? undefined) : undefined,
       };
+    case "ticket.auto_approved": {
+      const sure = num(p.confidence);
+      add(
+        sure !== null &&
+          `Confidence ${sure.toFixed(2)} (classifier ${num(p.classifier_confidence)?.toFixed(2) ?? "unknown"}, draft ${num(p.draft_confidence)?.toFixed(2) ?? "unknown"}) met the ${num(p.threshold)?.toFixed(2) ?? "set"} threshold`,
+      );
+      add("Approved and sent without the owner");
+      return { label: "Auto-approved", tone: "ok", lines };
+    }
     case "ticket.rejected":
       add(str(p.reason) && `Reason: ${p.reason}`);
       return { label: "Owner rejected", tone: "danger", lines };

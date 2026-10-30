@@ -8,6 +8,7 @@ The log names the settings at fault, never their values.
 
 import logging
 from dataclasses import dataclass
+from uuid import UUID
 
 import httpx
 from pydantic import ValidationError
@@ -23,9 +24,16 @@ from services.api.models.enums import JobType
 from services.api.pipeline.draft import DraftingConfig
 from services.api.pipeline.process import make_process_ticket_handler
 from services.api.pipeline.store import PipelineStore
-from services.api.policy_source import expectation
+from services.api.policy_source import expectation, loaded_passages
 from services.api.retrieval.index import PgPolicyIndex
-from services.api.settings import LLMSettings, StoreProfileSettings, StoreSettings
+from services.api.review.service import ReviewService
+from services.api.review.store import ReviewStore
+from services.api.settings import (
+    AutoApproveSettings,
+    LLMSettings,
+    StoreProfileSettings,
+    StoreSettings,
+)
 
 log = logging.getLogger("replydesk.pipeline")
 
@@ -47,6 +55,7 @@ def build_pipeline(
     llm_settings: LLMSettings | None = None,
     store_settings: StoreSettings | None = None,
     profile: StoreProfileSettings | None = None,
+    auto_approve: AutoApproveSettings | None = None,
 ) -> PipelineRuntime | None:
     """The `process_ticket` handler wired to the model, the order store and the policy index, or
     None when the model is not configured."""
@@ -54,6 +63,7 @@ def build_pipeline(
         llm_settings = llm_settings or LLMSettings()
         store_settings = store_settings or StoreSettings()
         profile = profile or StoreProfileSettings()
+        auto_approve = auto_approve or AutoApproveSettings()
     except ValidationError as exc:
         # Names and the rule that failed, never the value (`input` is left out).
         problems = [(".".join(map(str, e["loc"])) or "settings", e["msg"]) for e in exc.errors()]
@@ -68,6 +78,16 @@ def build_pipeline(
         log.error("pipeline disabled: %s", exc)
         return None
     http = httpx.AsyncClient(timeout=store_settings.mock_store_timeout_seconds)
+    after_draft = None
+    if auto_approve.auto_approve_enabled:
+        reviewer = ReviewService(
+            ReviewStore(engine), clock, profile.store_sign_off, loaded_passages()
+        )
+        threshold = auto_approve.auto_approve_threshold
+
+        async def after_draft(ticket_id: UUID) -> object:
+            return await reviewer.auto_approve(ticket_id, threshold)
+
     handler = make_process_ticket_handler(
         PipelineStore(engine),
         client,
@@ -76,6 +96,13 @@ def build_pipeline(
         DraftingConfig(
             index=PgPolicyIndex(engine, expectation().version), sign_off=profile.store_sign_off
         ),
+        after_draft,
     )
-    log.info("pipeline enabled: provider=%s", llm_settings.llm_provider)
+    log.info(
+        "pipeline enabled: provider=%s, auto-approve %s",
+        llm_settings.llm_provider,
+        f"at {auto_approve.auto_approve_threshold:.2f}"
+        if auto_approve.auto_approve_enabled
+        else "off",
+    )
     return PipelineRuntime({JobType.PROCESS_TICKET: handler}, client, http)

@@ -98,6 +98,21 @@ checked". Deploys wait on `/healthz`, not `/readyz`, so a degraded instance stil
   (new, classified or drafted), its job gets three fresh tries, and the audit log records
   `ticket.retried` with who pressed it. If it fails again, the reason shows again.
 
+### Auto-approval
+
+- **What it does:** right after a draft is stored, a reply goes to the customer (mock send) with no
+  owner when **both** the classifier's and the drafter's confidence are at least
+  `AUTO_APPROVE_THRESHOLD` (default 0.90) and nothing asks for a person. Such a ticket is `sent` and
+  appears under **Approved**. Escalated tickets, suggestion-only drafts, the fallback template,
+  suspected-injection tickets and text with grounding warnings always wait for the owner.
+- **Audit:** `ticket.auto_approved` by `system:auto-approve`, with both confidences and the
+  threshold, then `ticket.mock_sent`.
+- **Turn it off or change it:** set `AUTO_APPROVE_ENABLED=false` (every draft waits for the owner
+  again) or change `AUTO_APPROVE_THRESHOLD` on the API service in Render, then redeploy. Tickets
+  already auto-approved are not undone.
+- **If it does not seem to run:** the API log says `pipeline enabled: ... auto-approve at 0.90` (or
+  `off`) at start-up, and `not auto-approved: <reason>` for each draft it held back.
+
 ### Model provider failing
 
 - **Shows as:** tickets escalated with `escalation_reason` of `llm_error:<ClassName>`
