@@ -189,7 +189,7 @@ function TicketView({
               )}
               {actionable && (
                 <div className="actions">
-                  <button type="button" onClick={() => setDialog("approve")}>
+                  <button type="button" className="primary" onClick={() => setDialog("approve")}>
                     Approve (A)
                   </button>
                   <button type="button" onClick={() => setEditing(true)}>
