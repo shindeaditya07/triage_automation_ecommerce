@@ -16,12 +16,14 @@ command always writes the same files.
 
 import argparse
 import csv
+import importlib
 import io
 import json
 import random
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -57,8 +59,17 @@ class Case:
     message: str
 
 
+def load_seed() -> dict[str, list[dict[str, object]]]:
+    """The mock store's seed. seed.json is gitignored, so build it in memory when `make seed` hasn't run."""
+    if SEED.exists():
+        return json.loads(SEED.read_text(encoding="utf-8"))
+    build = importlib.import_module("services.mock-store.seed")
+    now = datetime(2026, 10, 19, 11, 26, 53, tzinfo=UTC)
+    return build.build_seed(now).model_dump(mode="json")
+
+
 def load_orders() -> list[Order]:
-    data = json.loads(SEED.read_text(encoding="utf-8"))
+    data = load_seed()
     return [
         Order(
             o["order_id"],

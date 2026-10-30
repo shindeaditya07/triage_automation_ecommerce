@@ -3,7 +3,6 @@ and every row is something the real intake would accept."""
 
 import csv
 import io
-import json
 from collections import Counter
 
 from scripts import make_test_complaints as gen
@@ -39,7 +38,7 @@ def test_no_two_messages_are_the_same() -> None:
 
 
 def test_customers_and_orders_are_ones_the_mock_store_knows() -> None:
-    seed = json.loads(gen.SEED.read_text(encoding="utf-8"))
+    seed = gen.load_seed()
     emails = {o["customer_email"] for o in seed["orders"]}
     orders = {o["order_id"] for o in seed["orders"]}
     cases = read(gen.CASES_PATH)
