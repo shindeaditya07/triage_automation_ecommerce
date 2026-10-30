@@ -22,7 +22,7 @@ database they answer 503.
   per-address rate limit because only the owner can call it. The answer is `{received, duplicates,
   rejected: [{row, reason}]}`: a bad row (not an email, empty or too long message, a field the form
   does not have) is listed by its number and never stops the rest. Sending the same `batch_id` again
-  makes no second ticket for any row. The web app's **Bulk upload** page (`/upload`) reads a CSV and
+  makes no second ticket for any row. The web app's Bulk upload page (`/upload`, open it by address; there is no link to it) reads a CSV and
   sends it in batches of 50.
 - `GET /api/v1/tickets/{ticket_id}` is the whole ticket: the customer's original message, the
   classification and flags, the order snapshot the draft was made from, and the latest draft with

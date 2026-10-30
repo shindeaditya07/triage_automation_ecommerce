@@ -611,6 +611,9 @@ textarea:focus-visible {
   align-items: flex-start;
   margin-bottom: 0.5rem;
 }
+.range .push-right {
+  margin-left: auto;
+}
 .range .tabs {
   margin-bottom: 0;
 }
