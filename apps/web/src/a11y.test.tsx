@@ -172,7 +172,7 @@ describe("accessibility", () => {
     await user.click(screen.getByRole("button", { name: /Edit/ }));
     expect(await a11yProblems()).toEqual([]);
     await user.click(screen.getByRole("button", { name: "Cancel" }));
-    await user.click(screen.getByRole("button", { name: /Reject/ }));
+    await user.click(screen.getByRole("button", { name: /Approve/ }));
     expect(await a11yProblems()).toEqual([]);
   });
 

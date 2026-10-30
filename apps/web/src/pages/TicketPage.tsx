@@ -5,12 +5,12 @@ import { useAudit, useTicket, type TicketDetail } from "../api/tickets";
 import { DraftEditor } from "../components/DraftEditor";
 import { ActivityList, EvidencePanel } from "../components/EvidencePanel";
 import { OwnerReply } from "../components/OwnerReply";
-import { ApproveDialog, EraseCustomerDialog, RejectDialog } from "../components/ReviewDialogs";
+import { ApproveDialog, EraseCustomerDialog } from "../components/ReviewDialogs";
 import { complaintTitle, humanize } from "../format";
 import { useTitle } from "../hooks/useTitle";
 import { queueAddress, tabForStatus } from "./queueTabs";
 
-type Dialog = "approve" | "reject" | "erase" | null;
+type Dialog = "approve" | "erase" | null;
 
 export function TicketPage() {
   const { ticketId = "" } = useParams();
@@ -81,7 +81,6 @@ function TicketView({
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const key = event.key.toLowerCase();
       if (key === "a") setDialog("approve");
-      if (key === "r") setDialog("reject");
       if (key === "e") {
         event.preventDefault();
         setEditing(true);
@@ -177,9 +176,6 @@ function TicketView({
                   <button type="button" onClick={() => setEditing(true)}>
                     Edit (E)
                   </button>
-                  <button type="button" onClick={() => setDialog("reject")}>
-                    Reject (R)
-                  </button>
                 </div>
               )}
             </>
@@ -206,9 +202,6 @@ function TicketView({
           suggestionOnly={draft?.suggestion_only ?? false}
           onClose={() => setDialog(null)}
         />
-      )}
-      {dialog === "reject" && (
-        <RejectDialog ticketId={ticket.ticket_id} onClose={() => setDialog(null)} />
       )}
       {dialog === "erase" && (
         <EraseCustomerDialog
