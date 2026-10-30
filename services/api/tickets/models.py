@@ -21,6 +21,7 @@ from services.api.models.enums import (
 
 class TicketSummary(StrictModel):
     ticket_id: UUID
+    complaint_id: int
     received_at: UtcDatetime
     channel: Channel
     customer_email: str
@@ -70,6 +71,7 @@ class DraftView(StrictModel):
 
 class TicketDetail(StrictModel):
     ticket_id: UUID
+    complaint_id: int
     thread_id: UUID
     received_at: UtcDatetime
     channel: Channel

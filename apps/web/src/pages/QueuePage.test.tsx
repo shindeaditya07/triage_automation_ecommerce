@@ -17,6 +17,7 @@ afterEach(() => {
 
 const ticket = (id: string, over: Record<string, unknown> = {}) => ({
   ticket_id: id,
+  complaint_id: 48213907,
   received_at: "2026-10-22T10:00:00Z",
   channel: "form",
   customer_email: "asha@example.com",
@@ -62,7 +63,7 @@ function app(routing: Routing, path = "/") {
 describe("the queue", () => {
   it("links each ticket to its screen", async () => {
     app(() => page([ticket("a")]));
-    const link = await screen.findByRole("link", { name: "Subject a" });
+    const link = await screen.findByRole("link", { name: "48213907 - Subject a" });
     expect(link.getAttribute("href")).toBe("/tickets/a");
   });
 
@@ -73,7 +74,7 @@ describe("the queue", () => {
         ticket("b", { status: "drafted", suggestion_only: true, used_fallback_template: true }),
       ]),
     );
-    expect(await screen.findByText("Subject a")).toBeTruthy();
+    expect(await screen.findByText("48213907 - Subject a")).toBeTruthy();
     expect(screen.getByText("owner@example.com")).toBeTruthy();
     expect(screen.getByText("Critical")).toBeTruthy();
     expect(screen.getByText(/Suspected injection/)).toBeTruthy();
@@ -110,7 +111,7 @@ describe("the queue", () => {
         ticket("e", { status: "escalated", escalation_reason: "legal_threat" }),
       ]),
     );
-    await screen.findByText("Subject d");
+    await screen.findByText("48213907 - Subject d");
     const tags = document.querySelectorAll(".ticket-tab");
     expect([...tags].map((t) => t.textContent)).toEqual(["In progress", "Escalated"]);
   });
@@ -126,7 +127,7 @@ describe("the queue", () => {
     expect(await screen.findByRole("alert")).toBeTruthy();
     fail = false;
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
-    expect(await screen.findByText("Subject r")).toBeTruthy();
+    expect(await screen.findByText("48213907 - Subject r")).toBeTruthy();
   });
 
   it("pages through a long list", async () => {
@@ -134,26 +135,26 @@ describe("the queue", () => {
       const offset = Number(search.get("offset") ?? 0);
       return { body: { items: [ticket(`p${offset}`)], total: 30, limit: 25, offset } };
     });
-    expect(await screen.findByText("Subject p0")).toBeTruthy();
+    expect(await screen.findByText("48213907 - Subject p0")).toBeTruthy();
     expect(screen.getByText("1–25 of 30")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Next" }));
-    expect(await screen.findByText("Subject p25")).toBeTruthy();
+    expect(await screen.findByText("48213907 - Subject p25")).toBeTruthy();
     expect(seen.some((r) => r.search.get("offset") === "25")).toBe(true);
     expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("moves the selection with J and K", async () => {
     app(() => page([ticket("one"), ticket("two"), ticket("three")]));
-    await screen.findByText("Subject one");
+    await screen.findByText("48213907 - Subject one");
     const current = () =>
       screen.getByRole("list", { name: /tickets/ }).querySelector("[aria-current]");
-    expect(current()?.textContent).toContain("Subject one");
+    expect(current()?.textContent).toContain("48213907 - Subject one");
     fireEvent.keyDown(window, { key: "j" });
     fireEvent.keyDown(window, { key: "j" });
     fireEvent.keyDown(window, { key: "j" }); // stops at the last
-    await waitFor(() => expect(current()?.textContent).toContain("Subject three"));
+    await waitFor(() => expect(current()?.textContent).toContain("48213907 - Subject three"));
     fireEvent.keyDown(window, { key: "k" });
-    await waitFor(() => expect(current()?.textContent).toContain("Subject two"));
+    await waitFor(() => expect(current()?.textContent).toContain("48213907 - Subject two"));
   });
 
   it("says the server is waking up when the first answer is slow", async () => {
@@ -235,7 +236,7 @@ describe("signing in", () => {
         />
       </>,
     );
-    await screen.findByText("Subject x");
+    await screen.findByText("48213907 - Subject x");
     await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
     expect(await screen.findByRole("button", { name: "Sign in" })).toBeTruthy();
   });
@@ -271,7 +272,7 @@ describe("signing in", () => {
     await userEvent.type(await screen.findByLabelText("Email"), "owner@example.com");
     await userEvent.type(screen.getByLabelText("Password"), "a password");
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
-    expect(await screen.findByText("Subject x")).toBeTruthy();
+    expect(await screen.findByText("48213907 - Subject x")).toBeTruthy();
   });
 
   it.each([

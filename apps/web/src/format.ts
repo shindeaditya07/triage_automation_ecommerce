@@ -50,3 +50,8 @@ export function daysBefore(day: string, days: number): string {
   moment.setUTCDate(moment.getUTCDate() - days);
   return moment.toISOString().slice(0, 10);
 }
+
+/** "48213907 - Return my order": the complaint's number before its subject. */
+export function complaintTitle(complaintId: number, subject: string | null): string {
+  return `${complaintId} - ${subject || "(no subject)"}`;
+}

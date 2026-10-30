@@ -82,6 +82,7 @@ class TicketReadStore:
         items = [
             TicketSummary(
                 ticket_id=r.ticket_id,
+                complaint_id=r.complaint_id,
                 received_at=r.received_at,
                 channel=r.channel,
                 customer_email=r.customer_email,
@@ -128,6 +129,7 @@ class TicketReadStore:
         draft = self._draft_view(d) if d is not None else None
         return TicketDetail(
             ticket_id=t.ticket_id,
+            complaint_id=t.complaint_id,
             thread_id=t.thread_id,
             received_at=t.received_at,
             channel=t.channel,

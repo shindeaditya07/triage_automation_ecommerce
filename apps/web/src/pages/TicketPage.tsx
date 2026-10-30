@@ -6,7 +6,7 @@ import { DraftEditor } from "../components/DraftEditor";
 import { ActivityList, EvidencePanel } from "../components/EvidencePanel";
 import { OwnerReply } from "../components/OwnerReply";
 import { ApproveDialog, EraseCustomerDialog, RejectDialog } from "../components/ReviewDialogs";
-import { humanize } from "../format";
+import { complaintTitle, humanize } from "../format";
 import { useTitle } from "../hooks/useTitle";
 import { queueAddress, tabForStatus } from "./queueTabs";
 
@@ -16,7 +16,7 @@ export function TicketPage() {
   const { ticketId = "" } = useParams();
   const ticket = useTicket(ticketId);
   const audit = useAudit(ticketId);
-  useTitle(ticket.data?.subject ?? "Ticket");
+  useTitle(ticket.data ? complaintTitle(ticket.data.complaint_id, ticket.data.subject) : "Ticket");
   // Back goes to the queue tab the ticket was opened from. A direct link or a refresh has no
   // such memory, so it falls back to the tab the ticket's status belongs to.
   const from = (useLocation().state as { from?: unknown } | null)?.from;
@@ -94,7 +94,7 @@ function TicketView({
   const shownText = draft ? (draft.final_text ?? draft.reply_text) : "";
   return (
     <>
-      <h2 className="ticket-title">{ticket.subject || "(no subject)"}</h2>
+      <h2 className="ticket-title">{complaintTitle(ticket.complaint_id, ticket.subject)}</h2>
       <p className="ticket-from">
         {ticket.customer_name ? `${ticket.customer_name} · ` : ""}
         {ticket.customer_email} · {humanize(ticket.channel)} ·{" "}

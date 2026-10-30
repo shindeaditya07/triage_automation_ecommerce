@@ -122,6 +122,10 @@ be caught; that is the cost of not masking every long number.
 The original text is not kept. `audit_log` holds counts and flags only (`pii_masked`,
 `links_removed`, `html_found`, `hidden_text_removed`), never the text.
 
+## Complaint IDs
+
+Every ticket gets a random 8-digit complaint ID (10000000 to 99999999, never a leading zero), drawn by the database function `new_complaint_id()` when the row is inserted, so every intake path (form, email, owner dialog) gets one. A unique constraint guarantees no two tickets share a number, and the function skips any number already in use. The queue, the ticket screen and the audit link show it before the subject as `{complaint_id} - {subject}`. The ID is a label, not a secret: it is not used for access. It stays after a customer's data is erased, because it holds no personal data. A message received twice keeps the ID of its first ticket.
+
 ## Threading and duplicates
 
 * A message is identified by `external_message_id` (the email's `message_id`, or `form-<submission_id>`).

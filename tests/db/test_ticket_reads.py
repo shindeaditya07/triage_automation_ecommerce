@@ -53,6 +53,18 @@ async def test_the_queue_is_newest_first_whatever_the_urgency(engine: AsyncEngin
     assert received == sorted(received, reverse=True)
 
 
+async def test_the_queue_and_the_ticket_screen_carry_the_complaint_id(
+    engine: AsyncEngine,
+) -> None:
+    ticket_id = await drafted(engine, 1)
+    store = reader(engine)
+    (listed,) = [i for i in await everything(store) if i.ticket_id == ticket_id]
+    detail = await store.get_ticket(ticket_id)
+    assert detail is not None
+    assert 10_000_000 <= listed.complaint_id <= 99_999_999
+    assert detail.complaint_id == listed.complaint_id
+
+
 async def test_filters_and_paging(engine: AsyncEngine) -> None:
     ids = {await drafted(engine, n) for n in (1, 2, 3)}
     store = reader(engine)

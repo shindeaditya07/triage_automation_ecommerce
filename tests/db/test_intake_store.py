@@ -102,6 +102,26 @@ async def test_a_message_is_stored_cleaned_with_a_job_and_an_audit_entry(
     assert "4111" not in json.dumps(audit["payload"])
 
 
+async def test_every_ticket_gets_its_own_eight_digit_complaint_id(
+    service: IntakeService, scope: Scope
+) -> None:
+    for name in ("a", "b", "c", "d", "e"):
+        await service.ingest(scope.request(name))
+    numbers = [row["complaint_id"] for row in await scope.rows("tickets")]
+    assert len(set(numbers)) == 5
+    assert all(isinstance(n, int) and 10_000_000 <= n <= 99_999_999 for n in numbers)
+
+
+async def test_a_message_received_twice_keeps_its_complaint_id(
+    service: IntakeService, scope: Scope
+) -> None:
+    await service.ingest(scope.request("same"))
+    (first,) = await scope.rows("tickets")
+    await service.ingest(scope.request("same"))
+    (again,) = await scope.rows("tickets")
+    assert again["complaint_id"] == first["complaint_id"]
+
+
 async def test_the_original_text_is_not_kept_anywhere(service: IntakeService, scope: Scope) -> None:
     await service.ingest(scope.request(body="my card is 4111111111111111 and PAN ABCPE1234F"))
     dump = json.dumps(

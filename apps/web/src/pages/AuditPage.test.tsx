@@ -28,7 +28,8 @@ function show(path: string, audit: { status?: number; body?: unknown }) {
   stubApi((_, p) => {
     if (p === "/api/v1/auth/me") return { body: { email: "owner@example.com" } };
     if (p === `/api/v1/tickets/${ID}/audit`) return audit;
-    if (p === `/api/v1/tickets/${ID}`) return { body: { subject: "Return my water bottle" } };
+    if (p === `/api/v1/tickets/${ID}`)
+      return { body: { complaint_id: 48213907, subject: "Return my water bottle" } };
     return undefined;
   });
   renderAt(
@@ -55,7 +56,7 @@ describe("the audit log page", () => {
     expect(await screen.findByText("Ticket received")).toBeTruthy();
     expect(screen.getByText("Received by Form")).toBeTruthy();
     expect(screen.getByText("Reason: reason 1")).toBeTruthy();
-    expect(screen.getByText("Return my water bottle")).toBeTruthy();
+    expect(screen.getByText("48213907 - Return my water bottle")).toBeTruthy();
     expect(screen.getAllByText("Raw record").length).toBe(3);
   });
 

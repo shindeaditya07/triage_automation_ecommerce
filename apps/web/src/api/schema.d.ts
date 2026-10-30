@@ -705,6 +705,8 @@ export interface components {
             /** Body */
             body: string;
             channel: components["schemas"]["Channel"];
+            /** Complaint Id */
+            complaint_id: number;
             /** Confidence */
             confidence: number | null;
             /** Customer Email */
@@ -772,6 +774,8 @@ export interface components {
         /** TicketSummary */
         TicketSummary: {
             channel: components["schemas"]["Channel"];
+            /** Complaint Id */
+            complaint_id: number;
             /** Customer Email */
             customer_email: string;
             /** Customer Name */
