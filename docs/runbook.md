@@ -193,3 +193,14 @@ whatever the ticket's status, and erased tickets disappear from the ticket list 
 Customer text is stored after masking card, bank, UPI and Aadhaar numbers; the original text is
 not kept. To see whether it is running, look for `retention.sweep` in a ticket-less audit query or
 `retention sweep erased` in the API log. Ask before deleting production data by hand.
+
+### When a customer asks to be erased
+
+Sign in as the owner and use **Erase this customer's data** at the bottom of any of their tickets
+(you type their address to confirm), or call `DELETE /api/v1/customers/{email}` with the usual
+session and CSRF headers. Every live ticket from that address, matched case-insensitively, is
+erased exactly as the retention sweep does it, in one transaction, whatever its status. Each ticket
+gets a `ticket.customer_erased` audit entry and the request gets one `customer.erasure` entry
+holding only the count; the address itself is never written to the audit log. The answer is
+`{"erased": n}`, or 404 when there is nothing from that address (mistyped, or already erased). It
+cannot be undone, and it does not touch database backups, so a restore would bring the text back.

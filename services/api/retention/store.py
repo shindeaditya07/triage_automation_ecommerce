@@ -8,11 +8,13 @@ anything is stored, and rejected draft text is never kept), so they survive and 
 existed and what was done to it.
 """
 
+from collections.abc import Sequence
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import Text, case, cast, func, null, select, update
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from services.api.db.tables import audit_log, drafts, order_snapshots, tickets
 
@@ -64,47 +66,70 @@ class RetentionStore:
             )
             if not ids:
                 return 0
-            await conn.execute(
-                update(tickets)
-                .where(tickets.c.ticket_id.in_(ids))
-                .values(
-                    external_message_id=func.concat("deleted:", cast(tickets.c.ticket_id, Text)),
-                    in_reply_to=None,
-                    customer_email=ERASED_EMAIL,
-                    customer_name=None,
-                    subject=None,
-                    body=ERASED_TEXT,
-                    order_id_hint=None,
-                    attachments=[],
-                    order_lookup=null(),
-                    deleted_at=now,
-                    updated_at=now,
-                )
-            )
-            await conn.execute(
-                update(drafts)
-                .where(drafts.c.ticket_id.in_(ids))
-                .values(
-                    reply_text=ERASED_TEXT,
-                    final_text=case((drafts.c.final_text.is_(None), null()), else_=ERASED_TEXT),
-                    citations=[],
-                    grounding_result=null(),
-                )
-            )
-            await conn.execute(
-                update(order_snapshots).where(order_snapshots.c.ticket_id.in_(ids)).values(data={})
-            )
-            await conn.execute(
-                audit_log.insert(),
-                [
-                    {
-                        "ticket_id": ticket_id,
-                        "event_type": "ticket.retention_erased",
-                        "actor": "system",
-                        "payload": {"retention_days": retention_days},
-                        "occurred_at": now,
-                    }
-                    for ticket_id in ids
-                ],
+            await erase_tickets(
+                conn,
+                ids,
+                now,
+                event_type="ticket.retention_erased",
+                actor="system",
+                payload={"retention_days": retention_days},
             )
             return len(ids)
+
+
+async def erase_tickets(
+    conn: AsyncConnection,
+    ids: Sequence[UUID],
+    now: datetime,
+    *,
+    event_type: str,
+    actor: str,
+    payload: dict[str, Any],
+    placeholder: str = ERASED_TEXT,
+) -> None:
+    """Overwrite every customer-supplied text of these tickets and record one audit row each.
+    Shared by the retention sweep and the customer erasure request, so both leave the same
+    result. The caller owns the transaction and has locked the rows."""
+    await conn.execute(
+        update(tickets)
+        .where(tickets.c.ticket_id.in_(ids))
+        .values(
+            external_message_id=func.concat("deleted:", cast(tickets.c.ticket_id, Text)),
+            in_reply_to=None,
+            customer_email=ERASED_EMAIL,
+            customer_name=None,
+            subject=None,
+            body=placeholder,
+            order_id_hint=None,
+            attachments=[],
+            order_lookup=null(),
+            deleted_at=now,
+            updated_at=now,
+        )
+    )
+    await conn.execute(
+        update(drafts)
+        .where(drafts.c.ticket_id.in_(ids))
+        .values(
+            reply_text=placeholder,
+            final_text=case((drafts.c.final_text.is_(None), null()), else_=placeholder),
+            citations=[],
+            grounding_result=null(),
+        )
+    )
+    await conn.execute(
+        update(order_snapshots).where(order_snapshots.c.ticket_id.in_(ids)).values(data={})
+    )
+    await conn.execute(
+        audit_log.insert(),
+        [
+            {
+                "ticket_id": ticket_id,
+                "event_type": event_type,
+                "actor": actor,
+                "payload": payload,
+                "occurred_at": now,
+            }
+            for ticket_id in ids
+        ],
+    )

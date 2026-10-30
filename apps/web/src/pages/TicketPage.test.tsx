@@ -126,6 +126,26 @@ describe("the ticket screen", () => {
     expect(sent).toEqual({ original_viewed: true, confirm_suggestion_only: false });
   });
 
+  it("erases a customer only after their address is typed", async () => {
+    const seen = app(detail(), (m, p) =>
+      m === "DELETE" && p === "/api/v1/customers/asha%40example.com"
+        ? { body: { erased: 2 } }
+        : undefined,
+    );
+    show();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /Erase this customer/ }));
+    const dialog = screen.getByRole("dialog");
+    const erase = within(dialog).getByRole("button", { name: "Erase permanently" });
+    expect(erase.hasAttribute("disabled")).toBe(true);
+    await user.type(within(dialog).getByLabelText(/Type the address/), "wrong@example.com");
+    expect(erase.hasAttribute("disabled")).toBe(true);
+    await user.clear(within(dialog).getByLabelText(/Type the address/));
+    await user.type(within(dialog).getByLabelText(/Type the address/), "Asha@example.com");
+    await user.click(erase);
+    await waitFor(() => expect(seen.some((r) => r.method === "DELETE")).toBe(true));
+  });
+
   it("shows an escalated ticket's reason as an escalation", async () => {
     app(detail({ status: "escalated", escalation_reason: "safety", draft: null }));
     show();

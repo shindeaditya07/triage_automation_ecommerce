@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { useAudit, useTicket, type TicketDetail } from "../api/tickets";
 import { DraftEditor } from "../components/DraftEditor";
 import { ActivityList, EvidencePanel } from "../components/EvidencePanel";
 import { OwnerReply } from "../components/OwnerReply";
-import { ApproveDialog, RejectDialog } from "../components/ReviewDialogs";
+import { ApproveDialog, EraseCustomerDialog, RejectDialog } from "../components/ReviewDialogs";
 import { humanize } from "../format";
 import { useTitle } from "../hooks/useTitle";
 
-type Dialog = "approve" | "reject" | null;
+type Dialog = "approve" | "reject" | "erase" | null;
 
 export function TicketPage() {
   const { ticketId = "" } = useParams();
@@ -60,6 +60,7 @@ function TicketView({
   const [viewed, setViewed] = useState(!gated);
   const [editing, setEditing] = useState(false);
   const [dialog, setDialog] = useState<Dialog>(null);
+  const navigate = useNavigate();
   const draft = ticket.draft;
   const actionable =
     draft !== null && draft.review_status === "pending" && ticket.status === "drafted";
@@ -182,6 +183,11 @@ function TicketView({
       <p>
         <Link to={`/audit/${ticket.ticket_id}`}>Full audit log for this ticket</Link>
       </p>
+      <p>
+        <button type="button" onClick={() => setDialog("erase")}>
+          Erase this customer&apos;s data
+        </button>
+      </p>
 
       {dialog === "approve" && (
         <ApproveDialog
@@ -193,6 +199,13 @@ function TicketView({
       )}
       {dialog === "reject" && (
         <RejectDialog ticketId={ticket.ticket_id} onClose={() => setDialog(null)} />
+      )}
+      {dialog === "erase" && (
+        <EraseCustomerDialog
+          email={ticket.customer_email}
+          onClose={() => setDialog(null)}
+          onErased={() => navigate("/")}
+        />
       )}
     </>
   );
