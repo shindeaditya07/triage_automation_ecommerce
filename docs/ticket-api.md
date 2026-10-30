@@ -73,3 +73,9 @@ length of the final text (the text itself is on the draft as `final_text`). **No
 system.** If recording the send fails, the ticket stays `approved` (the approval is never lost) and
 `POST /api/v1/tickets/{id}/send` finishes it; calling it again, or on a ticket already sent, changes
 nothing.
+
+## Erase a customer
+
+`DELETE /api/v1/customers/{email}` (owner only, CSRF header required; the address is URL-encoded)
+erases every live ticket from that address and answers `{"erased": n}`. 404 when there are none,
+422 when the path is not an address. See the runbook for what is erased and what is kept.

@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { useApprove, useReject } from "../api/tickets";
+import { useApprove, useEraseCustomer, useReject } from "../api/tickets";
 import { errorMessage } from "../ticketView";
 import { Modal } from "./Modal";
 
@@ -85,6 +85,51 @@ export function RejectDialog({ ticketId, onClose }: { ticketId: string; onClose:
           onClick={() => reject.mutate(reason.trim(), { onSuccess: onClose })}
         >
           Reject
+        </button>
+        <button type="button" onClick={onClose}>
+          Cancel
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+/** Irreversible, so the owner types the address to confirm. */
+export function EraseCustomerDialog({
+  email,
+  onClose,
+  onErased,
+}: {
+  email: string;
+  onClose: () => void;
+  onErased: () => void;
+}) {
+  const [typed, setTyped] = useState("");
+  const erase = useEraseCustomer();
+  const ready = typed.trim().toLowerCase() === email.toLowerCase();
+  return (
+    <Modal title="Erase this customer's data?" onClose={onClose}>
+      <p>
+        This permanently erases every ticket from <strong>{email}</strong>: their name, address,
+        messages, the order data copied for them and every reply. It cannot be undone. The audit log
+        keeps the fact that tickets were erased, without their text.
+      </p>
+      <label>
+        Type the address to confirm
+        <input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
+      </label>
+      {erase.isError && (
+        <p className="error" role="alert">
+          {errorMessage(erase.error)}
+        </p>
+      )}
+      <div className="actions">
+        <button
+          type="button"
+          disabled={!ready || erase.isPending}
+          onClick={() => erase.mutate(email, { onSuccess: onErased })}
+        >
+          Erase permanently
         </button>
         <button type="button" onClick={onClose}>
           Cancel

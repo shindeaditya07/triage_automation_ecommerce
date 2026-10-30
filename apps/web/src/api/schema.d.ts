@@ -75,6 +75,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/customers/{email}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Erase Customer
+         * @description Erase every live ticket from this address. 404 when there is none, so the owner learns
+         *     the address was mistyped or already erased.
+         */
+        delete: operations["erase_customer_api_v1_customers__email__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/metrics": {
         parameters: {
             query?: never;
@@ -460,6 +481,11 @@ export interface components {
             reviewed_by: string | null;
             /** Suggestion Only */
             suggestion_only: boolean;
+        };
+        /** ErasureResult */
+        ErasureResult: {
+            /** Erased */
+            erased: number;
         };
         /** ErrorBody */
         ErrorBody: {
@@ -940,6 +966,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    erase_customer_api_v1_customers__email__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                email: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErasureResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

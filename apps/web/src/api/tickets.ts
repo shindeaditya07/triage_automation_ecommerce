@@ -130,3 +130,13 @@ export function useOwnerReply(ticketId: string) {
     onSuccess: after,
   });
 }
+
+/** Erase every ticket this customer sent. The address goes in the URL path, so it is encoded. */
+export function useEraseCustomer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (email: string) =>
+      unwrap(api.DELETE("/api/v1/customers/{email}", { params: { path: { email } } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tickets"] }),
+  });
+}

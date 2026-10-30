@@ -312,7 +312,11 @@ For what to do when something breaks, read [docs/runbook.md](docs/runbook.md).
   message, order data and every reply text on tickets older than `RETENTION_DAYS` (default 90),
   whatever their status, so an unanswered old ticket is erased too. Audit entries stay (they hold
   no customer text) and erased tickets drop out of the metrics, so figures for a period older than
-  the retention window shrink. There is no customer-requested erasure yet.
+  the retention window shrink.
+- **Customer erasure matches one address.** `DELETE /api/v1/customers/{email}` (and the button on the
+  ticket page) erases every ticket from that exact address, the same way retention does. A customer
+  who wrote from a second address, or whose text is quoted in another customer's ticket, is not
+  found. Nothing outside the database (logs, backups) is touched.
 
 ## License
 
