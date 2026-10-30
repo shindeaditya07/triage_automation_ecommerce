@@ -1,8 +1,11 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useLogout, useMe } from "../api/auth";
 import { PAGE_SIZE, useTickets } from "../api/tickets";
+import { ContactForm } from "../components/ContactForm";
+import { Modal } from "../components/Modal";
 import { TicketRow } from "../components/TicketRow";
 import { useListKeys } from "../hooks/useListKeys";
 import { useTitle } from "../hooks/useTitle";
@@ -13,6 +16,8 @@ export function QueuePage() {
   useTitle("Queue");
   const [tabId, setTabId] = useState(QUEUE_TABS[0]!.id);
   const [page, setPage] = useState(0);
+  const [adding, setAdding] = useState(false);
+  const queryClient = useQueryClient();
   const tab = QUEUE_TABS.find((t) => t.id === tabId) ?? QUEUE_TABS[0]!;
   const tickets = useTickets(tab.statuses, page);
   const me = useMe();
@@ -34,6 +39,9 @@ export function QueuePage() {
         <span className="who">
           <Link to="/metrics">Metrics</Link>
           <Link to="/audit">Audit log</Link>
+          <button type="button" onClick={() => setAdding(true)}>
+            New complaint
+          </button>
           {me.data?.email}{" "}
           <button type="button" onClick={() => logout.mutate()}>
             Sign out
@@ -143,6 +151,15 @@ export function QueuePage() {
         </div>
         <p className="hint">Keys: J and K move down and up the list, Enter opens a ticket.</p>
       </main>
+      {adding && (
+        <Modal title="New complaint" onClose={() => setAdding(false)}>
+          <ContactForm
+            mode="owner"
+            onSent={() => void queryClient.invalidateQueries({ queryKey: ["tickets"] })}
+            onClose={() => setAdding(false)}
+          />
+        </Modal>
+      )}
     </div>
   );
 }
