@@ -250,25 +250,21 @@ describe("the ticket screen", () => {
     ).toBe(true);
   });
 
-  it("rejects only with a reason of ten characters", async () => {
-    const seen = app(detail(), (m, p) =>
-      m === "POST" && p.endsWith("/reject")
-        ? { body: { ...outcome.body, review_status: "rejected" } }
-        : undefined,
-    );
+  it("offers only Approve and Edit on a reply waiting for review", async () => {
+    app(detail());
     show();
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: /Reject/ }));
-    const dialog = screen.getByRole("dialog");
-    const confirm = within(dialog).getByRole("button", { name: "Reject" });
-    await user.type(within(dialog).getByRole("textbox"), "too short");
-    expect(confirm.hasAttribute("disabled")).toBe(true);
-    await user.type(within(dialog).getByRole("textbox"), " and now long enough");
-    await user.click(confirm);
-    await waitFor(() => expect(seen.some((r) => r.path.endsWith("/reject"))).toBe(true));
-    expect(JSON.parse(seen.find((r) => r.path.endsWith("/reject"))!.body).reason).toBe(
-      "too short and now long enough",
-    );
+    await screen.findByRole("button", { name: /Approve/ });
+    const actions = [...document.querySelectorAll(".actions button")].map((b) => b.textContent);
+    expect(actions).toEqual(["Approve (A)", "Edit (E)"]);
+    expect(screen.queryByRole("button", { name: /Reject/ })).toBeNull();
+  });
+
+  it("ignores the old R shortcut", async () => {
+    app(detail());
+    show();
+    await screen.findByRole("button", { name: /Approve/ });
+    await userEvent.keyboard("r");
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("warns on an ungrounded edit and saves it only with a reason", async () => {
