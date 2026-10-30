@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from services.api.auth.routes import require_owner
 from services.api.auth.service import Owner
 from services.api.retry.service import RetryResult, RetryService
-from services.api.retry.store import NoSuchTicket, NotFailed
+from services.api.retry.store import NoSuchTicket, NotRetryable
 
 router = APIRouter(prefix="/api/v1/tickets", tags=["retry"])
 
@@ -26,10 +26,12 @@ async def retry_ticket(
     owner: Annotated[Owner, Depends(require_owner)],
     service: Annotated[RetryService, Depends(get_retry)],
 ) -> RetryResult:
-    """Run a failed ticket again from where it stopped. 409 when it has not failed."""
+    """Run a failed or model-escalated ticket again from where it stopped. 409 otherwise."""
     try:
         return await service.retry(ticket_id, owner)
     except NoSuchTicket:
         raise HTTPException(404, "no such ticket") from None
-    except NotFailed:
-        raise HTTPException(409, "only a failed ticket can be retried") from None
+    except NotRetryable:
+        raise HTTPException(
+            409, "only a failed ticket, or an escalated one with no draft, can be retried"
+        ) from None
