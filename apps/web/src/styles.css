@@ -10,10 +10,11 @@
   --warn-bg: #fff3cd;
   --warn-text: #6b4e00;
   --on-accent: #ffffff; /* text on a filled accent or danger background */
-  color-scheme: light dark;
+  color-scheme: light;
 }
+/* The owner's choice (data-theme, set by theme.ts) wins; without one the device decides. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #12161c;
     --surface: #1b212a;
     --text: #e6eaf0;
@@ -25,7 +26,22 @@
     --warn-bg: #3d3210;
     --warn-text: #ffd866;
     --on-accent: #10151c;
+    color-scheme: dark;
   }
+}
+:root[data-theme="dark"] {
+  --bg: #12161c;
+  --surface: #1b212a;
+  --text: #e6eaf0;
+  --muted: #9aa5b4;
+  --border: #2d3644;
+  --accent: #6ea2f0;
+  --danger: #ff8a80;
+  --danger-bg: #3a1f1d;
+  --warn-bg: #3d3210;
+  --warn-text: #ffd866;
+  --on-accent: #10151c;
+  color-scheme: dark;
 }
 * {
   box-sizing: border-box;
@@ -68,6 +84,15 @@ input:focus-visible {
   padding: 0.75rem 1rem;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.theme-toggle {
+  padding: 0.2rem 0.6rem;
+  font-size: 0.85rem;
 }
 .who {
   color: var(--muted);
