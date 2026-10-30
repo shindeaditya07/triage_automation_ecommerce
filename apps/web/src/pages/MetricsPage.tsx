@@ -77,6 +77,7 @@ export function MetricsPage() {
           )}
           <button
             type="button"
+            className="push-right"
             disabled={!report}
             onClick={() =>
               report &&

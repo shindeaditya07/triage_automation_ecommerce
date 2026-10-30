@@ -43,7 +43,6 @@ export function QueuePage() {
     <div className="app">
       <TopBar>
         <Link to="/contact">New complaint</Link>
-        <Link to="/upload">Bulk upload</Link>
       </TopBar>
       <main id="main" tabIndex={-1} className="wide">
         <div className="queue-layout">
