@@ -89,7 +89,7 @@ describe("the queue", () => {
     expect(first.search.getAll("status")).toEqual([]);
     await userEvent.click(screen.getByRole("tab", { name: "In progress" }));
     await waitFor(() =>
-      expect(seen.some((r) => r.search.getAll("status").join() === "classified,drafted")).toBe(
+      expect(seen.some((r) => r.search.getAll("status").join() === "new,classified,drafted")).toBe(
         true,
       ),
     );
@@ -114,6 +114,13 @@ describe("the queue", () => {
     await screen.findByText("48213907 - Subject d");
     const tags = document.querySelectorAll(".ticket-tab");
     expect([...tags].map((t) => t.textContent)).toEqual(["In progress", "Escalated"]);
+  });
+
+  it("tags a ticket that has no tab of its own with its status", async () => {
+    app(() => page([ticket("r", { status: "rejected" }), ticket("n", { status: "new" })]));
+    await screen.findByText("48213907 - Subject r");
+    const tags = [...document.querySelectorAll(".ticket-tab")].map((t) => t.textContent);
+    expect(tags).toEqual(["Rejected", "In progress"]);
   });
 
   it("shows an escalation reason in plain words", async () => {

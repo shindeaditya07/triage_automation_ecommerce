@@ -131,15 +131,7 @@ describe("accessibility", () => {
     open("/tickets");
     await screen.findByText("48213907 - Return my water bottle");
     const tabs = screen.getAllByRole("tab");
-    expect(tabs.map((t) => t.getAttribute("tabindex"))).toEqual([
-      "0",
-      "-1",
-      "-1",
-      "-1",
-      "-1",
-      "-1",
-      "-1",
-    ]);
+    expect(tabs.map((t) => t.getAttribute("tabindex"))).toEqual(["0", "-1", "-1", "-1", "-1"]);
     const user = userEvent.setup();
     tabs[0]!.focus();
     await user.keyboard("{ArrowRight}");

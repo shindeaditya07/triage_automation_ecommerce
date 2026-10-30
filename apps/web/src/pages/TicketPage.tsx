@@ -24,7 +24,7 @@ export function TicketPage() {
     typeof from === "string" && from.startsWith("/tickets")
       ? from
       : ticket.data
-        ? queueAddress(tabForStatus(ticket.data.status).id)
+        ? queueAddress(tabForStatus(ticket.data.status)?.id ?? "all")
         : "/tickets";
   return (
     <div className="app">

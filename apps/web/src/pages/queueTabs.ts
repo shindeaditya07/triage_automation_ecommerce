@@ -12,18 +12,17 @@ export interface QueueTab {
  */
 export const QUEUE_TABS: readonly QueueTab[] = [
   { id: "all", label: "All", statuses: [] },
-  { id: "in-progress", label: "In progress", statuses: ["classified", "drafted"] },
-  { id: "new", label: "New", statuses: ["new"] },
+  { id: "in-progress", label: "In progress", statuses: ["new", "classified", "drafted"] },
   { id: "escalated", label: "Escalated", statuses: ["escalated"] },
   { id: "approved", label: "Approved", statuses: ["approved", "sent"] },
-  { id: "rejected", label: "Rejected", statuses: ["rejected"] },
   { id: "failed", label: "Failed", statuses: ["failed"] },
 ];
 
 /** The stage tab a ticket with this status is listed under. "All" holds every ticket, so it is
- * never the answer. */
-export function tabForStatus(status: TicketStatus): QueueTab {
-  return QUEUE_TABS.find((t) => t.statuses.includes(status)) ?? QUEUE_TABS[0]!;
+ * never the answer. A status with no tab of its own (a ticket rejected before the Reject action
+ * was removed) is only listed under All. */
+export function tabForStatus(status: TicketStatus): QueueTab | undefined {
+  return QUEUE_TABS.slice(1).find((t) => t.statuses.includes(status));
 }
 
 /** The queue address for a tab and page (1 is the first page), so Back can return to it. */

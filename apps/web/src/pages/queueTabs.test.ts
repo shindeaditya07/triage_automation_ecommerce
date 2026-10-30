@@ -15,21 +15,23 @@ describe("queue addresses", () => {
     expect(queueAddress("in-progress")).toBe("/tickets?tab=in-progress");
   });
 
-  it("files every status under a tab", () => {
-    expect(tabForStatus("escalated").id).toBe("escalated");
-    expect(tabForStatus("sent").id).toBe("approved");
-    expect(tabForStatus("classified").id).toBe("in-progress");
-    expect(tabForStatus("new").id).toBe("new");
+  it("files every live status under a tab", () => {
+    expect(tabForStatus("escalated")?.id).toBe("escalated");
+    expect(tabForStatus("sent")?.id).toBe("approved");
+    expect(tabForStatus("classified")?.id).toBe("in-progress");
+    expect(tabForStatus("new")?.id).toBe("in-progress");
+  });
+
+  it("leaves a rejected ticket without a tab, so it shows only under All", () => {
+    expect(tabForStatus("rejected")).toBeUndefined();
   });
 
   it("leads with an All tab that asks for no status filter", () => {
     expect(QUEUE_TABS.map((t) => t.label)).toEqual([
       "All",
       "In progress",
-      "New",
       "Escalated",
       "Approved",
-      "Rejected",
       "Failed",
     ]);
     expect(QUEUE_TABS[0]!.statuses).toEqual([]);
