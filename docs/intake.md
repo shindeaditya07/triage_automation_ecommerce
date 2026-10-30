@@ -46,8 +46,10 @@ address against it, so nothing about the order is shown on the page. The page ge
 from people and screen readers, and answers every refusal in plain words (429, 413, 422, 503).
 Attachments are not offered, because only their metadata would be stored.
 
-The same form is also a **New complaint** button on the owner queue (a dialog), for a complaint that
-arrives by phone or chat. It posts through the same public endpoint, so the ticket looks like any
+The owner records a complaint that arrives by phone or chat on this same page: the **New complaint**
+link on the queue opens `/contact`, and because that browser tab already knows the owner is signed
+in, the page shows the owner's header and wording ("Customer's email address", "Add complaint").
+Opening `/contact` directly shows the plain customer page. It posts through the same public endpoint, so the ticket looks like any
 other `form` ticket: the audit log does not record that the owner typed it, and it counts against the
 same per-address rate limit (3 a minute from one network).
 
@@ -124,7 +126,7 @@ The original text is not kept. `audit_log` holds counts and flags only (`pii_mas
 
 ## Complaint IDs
 
-Every ticket gets a random 8-digit complaint ID (10000000 to 99999999, never a leading zero), drawn by the database function `new_complaint_id()` when the row is inserted, so every intake path (form, email, owner dialog) gets one. A unique constraint guarantees no two tickets share a number, and the function skips any number already in use. The queue, the ticket screen and the audit link show it before the subject as `{complaint_id} - {subject}`. The ID is a label, not a secret: it is not used for access. It stays after a customer's data is erased, because it holds no personal data. A message received twice keeps the ID of its first ticket.
+Every ticket gets a random 8-digit complaint ID (10000000 to 99999999, never a leading zero), drawn by the database function `new_complaint_id()` when the row is inserted, so every intake path (form, email, owner entry) gets one. A unique constraint guarantees no two tickets share a number, and the function skips any number already in use. The queue, the ticket screen and the audit link show it before the subject as `{complaint_id} - {subject}`. The ID is a label, not a secret: it is not used for access. It stays after a customer's data is erased, because it holds no personal data. A message received twice keeps the ID of its first ticket.
 
 ## Threading and duplicates
 

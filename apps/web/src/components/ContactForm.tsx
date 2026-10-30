@@ -18,15 +18,13 @@ function messageFor(error: unknown): string {
 }
 
 interface Props {
-  /** Who is typing: a customer on /contact, or the owner recording a complaint from the queue. */
+  /** Who is typing: a customer, or the owner recording a complaint for one. */
   mode: "customer" | "owner";
   /** Called once the server has accepted a message. */
   onSent?: () => void;
-  /** Owner dialog only: leaves the form. */
-  onClose?: () => void;
 }
 
-export function ContactForm({ mode, onSent, onClose }: Props) {
+export function ContactForm({ mode, onSent }: Props) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [orderId, setOrderId] = useState("");
@@ -81,11 +79,6 @@ export function ContactForm({ mode, onSent, onClose }: Props) {
           <button type="button" onClick={again}>
             {mode === "owner" ? "Add another complaint" : "Send another message"}
           </button>
-          {onClose && (
-            <button type="button" onClick={onClose}>
-              Close
-            </button>
-          )}
         </div>
       </div>
     );
@@ -173,11 +166,6 @@ export function ContactForm({ mode, onSent, onClose }: Props) {
           <button type="submit" disabled={!ready || send.isPending}>
             {send.isPending ? "Sending…" : mode === "owner" ? "Add complaint" : "Send message"}
           </button>
-          {onClose && (
-            <button type="button" onClick={onClose}>
-              Cancel
-            </button>
-          )}
         </div>
       </form>
     </>
