@@ -695,3 +695,43 @@ select:focus-visible {
   height: 1px;
   overflow: hidden;
 }
+.queue-layout {
+  display: grid;
+  grid-template-columns: 14rem minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+.queue-content {
+  max-width: 60rem;
+}
+.queue-sidebar {
+  display: grid;
+  gap: 1rem;
+}
+.queue-sidebar label.sort {
+  display: grid;
+  gap: 0.25rem;
+  font-weight: 600;
+}
+.queue-sidebar fieldset {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  display: grid;
+  gap: 0.25rem;
+}
+.queue-sidebar legend {
+  font-weight: 600;
+  padding: 0 0.25rem;
+}
+.queue-sidebar .check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+@media (max-width: 48rem) {
+  .queue-layout {
+    grid-template-columns: 1fr;
+  }
+}

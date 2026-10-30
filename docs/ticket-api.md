@@ -5,12 +5,17 @@ database they answer 503.
 
 ## Reading (this branch)
 
-- `GET /api/v1/tickets?status=&intent=&limit=&offset=` is the queue. `status` may repeat
-  (`?status=new&status=classified` for an "In progress" tab). `limit` is 1 to 100 (default 50).
-  Newest first by `received_at`, whatever the urgency (the owner's call, replacing the spec's
-  urgency order; the urgency badge on each row still shows what is critical). Each item says whether it has a draft, is suggestion-only, or holds the
-  fallback template, so the queue can show the owner-visible notice. Soft-deleted tickets never
-  appear.
+- `GET /api/v1/tickets?status=&intent=&urgency=&sort=&limit=&offset=` is the queue. `status`,
+  `intent` and `urgency` may each repeat (`?status=new&status=classified` for an "In progress" tab;
+  several values of one filter match any of them, different filters must all match). `sort` is
+  `newest` (the default), `oldest`, `urgency` (critical first, then newest), `confidence_low` or
+  `confidence_high`; a ticket not yet classified, so with no confidence, comes last in both
+  confidence orders. `limit` is 1 to 100 (default 50). The default is newest first by
+  `received_at`, whatever the urgency (the owner's call, replacing the spec's urgency order; the
+  urgency badge on each row still shows what is critical). Each item says whether it has a draft,
+  is suggestion-only, or holds the fallback template, so the queue can show the owner-visible
+  notice. Soft-deleted tickets never appear. The queue page keeps the filters and sort in its
+  address (`/tickets?urgency=critical,high&intent=refund&sort=urgency`).
 - `GET /api/v1/tickets/{ticket_id}` is the whole ticket: the customer's original message, the
   classification and flags, the order snapshot the draft was made from, and the latest draft with
   its citations, the full text of each cited policy passage, and the grounding result.

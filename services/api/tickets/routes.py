@@ -1,7 +1,8 @@
 """`GET /api/v1/tickets` (the queue), `GET /api/v1/tickets/{ticket_id}` (one ticket) and
 `GET /api/v1/tickets/{ticket_id}/audit` (what happened to it, oldest first).
 
-Owner-only. The queue is sorted most urgent first, oldest first within an urgency. Reads only:
+Owner-only. The queue is newest first unless `sort` says otherwise; `status`, `intent` and `urgency`
+may each repeat. Reads only:
 approving, editing and rejecting are separate routes.
 """
 
@@ -12,9 +13,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from services.api.auth.routes import require_owner
 from services.api.auth.service import Owner
-from services.api.models.enums import Intent, TicketStatus
+from services.api.models.enums import Intent, TicketStatus, Urgency
 from services.api.tickets.models import AuditEvent, TicketDetail, TicketPage
-from services.api.tickets.store import TicketFilter
+from services.api.tickets.store import TicketFilter, TicketSort
 
 router = APIRouter(prefix="/api/v1/tickets", tags=["tickets"])
 
@@ -42,11 +43,14 @@ async def list_tickets(
     owner: Annotated[Owner, Depends(require_owner)],
     reader: Annotated[TicketReader, Depends(get_reader)],
     status: Annotated[list[TicketStatus] | None, Query()] = None,
-    intent: Annotated[Intent | None, Query()] = None,
+    intent: Annotated[list[Intent] | None, Query()] = None,
+    urgency: Annotated[list[Urgency] | None, Query()] = None,
+    sort: Annotated[TicketSort, Query()] = TicketSort.NEWEST,
     limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = DEFAULT_LIMIT,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> TicketPage:
-    return await reader.list_tickets(TicketFilter(tuple(status or ()), intent), limit, offset)
+    flt = TicketFilter(tuple(status or ()), tuple(intent or ()), tuple(urgency or ()), sort)
+    return await reader.list_tickets(flt, limit, offset)
 
 
 @router.get("/{ticket_id}", response_model=TicketDetail)

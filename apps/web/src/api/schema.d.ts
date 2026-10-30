@@ -796,6 +796,11 @@ export interface components {
             total: number;
         };
         /**
+         * TicketSort
+         * @enum {string}
+         */
+        TicketSort: "newest" | "oldest" | "urgency" | "confidence_low" | "confidence_high";
+        /**
          * TicketStatus
          * @enum {string}
          */
@@ -1072,7 +1077,9 @@ export interface operations {
         parameters: {
             query?: {
                 status?: components["schemas"]["TicketStatus"][] | null;
-                intent?: components["schemas"]["Intent"] | null;
+                intent?: components["schemas"]["Intent"][] | null;
+                urgency?: components["schemas"]["Urgency"][] | null;
+                sort?: components["schemas"]["TicketSort"];
                 limit?: number;
                 offset?: number;
             };

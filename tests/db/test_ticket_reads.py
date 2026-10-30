@@ -7,10 +7,10 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from services.api.models.enums import TicketStatus
+from services.api.models.enums import Intent, TicketStatus, Urgency
 from services.api.pipeline.store import PipelineStore
 from services.api.policy_source import loaded_passages
-from services.api.tickets.store import TicketFilter, TicketReadStore
+from services.api.tickets.store import TicketFilter, TicketReadStore, TicketSort
 from tests.db.test_draft_step import Client, drafting_handler, ticket_for
 from tests.db.test_pipeline_store import job_for
 from tests.pipeline.test_draft_stage import output
@@ -33,6 +33,14 @@ async def set_urgency(engine: AsyncEngine, ticket_id, urgency: str) -> None:  # 
         await conn.execute(
             text("UPDATE tickets SET urgency = :u WHERE ticket_id = :t"),
             {"u": urgency, "t": ticket_id},
+        )
+
+
+async def set_confidence(engine: AsyncEngine, ticket_id, confidence: float) -> None:  # type: ignore[no-untyped-def]
+    async with engine.begin() as conn:
+        await conn.execute(
+            text("UPDATE tickets SET confidence = :c WHERE ticket_id = :t"),
+            {"c": confidence, "t": ticket_id},
         )
 
 
@@ -83,7 +91,7 @@ async def test_filters_and_paging(engine: AsyncEngine) -> None:
     ]
     intents = {i.intent for i in everyone.items if i.intent}
     for intent in intents:
-        matched = await everything(store, TicketFilter(intent=intent))
+        matched = await everything(store, TicketFilter(intents=(intent,)))
         assert matched and all(i.intent == intent for i in matched)
 
 
@@ -160,3 +168,33 @@ async def test_the_audit_trail_of_an_unknown_or_deleted_ticket_is_none(
             text("UPDATE tickets SET deleted_at = now() WHERE ticket_id = :t"), {"t": ticket_id}
         )
     assert await reader(engine).get_audit(ticket_id) is None
+
+
+async def test_filter_by_urgency_and_intent_and_sort(engine: AsyncEngine) -> None:
+    low, critical, normal = [await drafted(engine, n) for n in (1, 2, 3)]
+    mine = {low, critical, normal}
+    for ticket_id, urgency, confidence in (
+        (low, "low", 0.95),
+        (critical, "critical", 0.4),
+        (normal, "normal", 0.7),
+    ):
+        await set_urgency(engine, ticket_id, urgency)
+        await set_confidence(engine, ticket_id, confidence)
+    store = reader(engine)
+
+    async def mine_in_order(**kwargs):  # type: ignore[no-untyped-def]
+        items = await everything(store, TicketFilter(**kwargs))
+        return [i.ticket_id for i in items if i.ticket_id in mine]
+
+    assert await mine_in_order(sort=TicketSort.URGENCY) == [critical, normal, low]
+    assert await mine_in_order(sort=TicketSort.CONFIDENCE_LOW) == [critical, normal, low]
+    assert await mine_in_order(sort=TicketSort.CONFIDENCE_HIGH) == [low, normal, critical]
+    newest = await mine_in_order(sort=TicketSort.NEWEST)
+    assert await mine_in_order(sort=TicketSort.OLDEST) == newest[::-1]
+
+    assert set(await mine_in_order(urgencies=(Urgency.CRITICAL, Urgency.LOW))) == {critical, low}
+    assert await mine_in_order(urgencies=(Urgency.HIGH,)) == []
+    page = await store.list_tickets(TicketFilter(urgencies=(Urgency.CRITICAL,)), 100, 0)
+    assert all(i.urgency is Urgency.CRITICAL for i in page.items)
+    wanted = tuple(Intent)
+    assert set(await mine_in_order(intents=wanted)) == mine
