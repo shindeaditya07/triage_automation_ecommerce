@@ -158,6 +158,18 @@ class StoreProfileSettings(BaseSettings):
         return value
 
 
+class AutoApproveSettings(BaseSettings):
+    """Whether a confident, clean reply is approved and sent without the owner (kill switch and
+    threshold). Set AUTO_APPROVE_ENABLED=false to send every draft to the owner again."""
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    auto_approve_enabled: bool = True
+    # A reply is auto-approved only when both the classifier's and the drafter's confidence are at
+    # least this high.
+    auto_approve_threshold: float = Field(default=0.90, ge=0, le=1)
+
+
 class IntakeSettings(DeploymentSettings):
     """Limits and the shared secret for the two ticket-intake endpoints."""
 
@@ -319,6 +331,7 @@ class Settings(
     LLMSettings,
     StoreSettings,
     StoreProfileSettings,
+    AutoApproveSettings,
 ):
     # API
     hmac_secret: SecretStr

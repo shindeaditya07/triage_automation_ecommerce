@@ -97,4 +97,21 @@ describe("describeEvent", () => {
       describeEvent(event("ticket.classified", { classification: "not an object" })).lines,
     ).toEqual(["?, ? urgency"]);
   });
+
+  it("explains an auto-approval with the confidence that cleared the threshold", () => {
+    const view = describeEvent(
+      event("ticket.auto_approved", {
+        classifier_confidence: 0.95,
+        draft_confidence: 0.92,
+        confidence: 0.92,
+        threshold: 0.9,
+      }),
+    );
+    expect(view.label).toBe("Auto-approved");
+    expect(view.tone).toBe("ok");
+    expect(view.lines).toContain(
+      "Confidence 0.92 (classifier 0.95, draft 0.92) met the 0.90 threshold",
+    );
+    expect(view.lines).toContain("Approved and sent without the owner");
+  });
 });

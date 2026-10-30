@@ -3,7 +3,9 @@ check for post-lookup escalation, draft the reply and check it is grounded. Late
 steps after."""
 
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import asdict
+from uuid import UUID
 
 from services.api.clock import Clock
 from services.api.context.client import OrderStoreClient, StoreContractError
@@ -27,10 +29,13 @@ def make_process_ticket_handler(
     orders: OrderStoreClient,
     clock: Clock,
     drafting: DraftingConfig | None = None,
+    after_draft: Callable[[UUID], Awaitable[object]] | None = None,
 ) -> Handler:
     """Each step reads the ticket's state and does only the step that state is waiting for, so a
     job that stopped half way picks up where it left off and one that ran twice does nothing.
-    Without `drafting` the handler stops after routing (tests of the earlier steps)."""
+    Without `drafting` the handler stops after routing (tests of the earlier steps).
+    `after_draft` runs once a draft is stored (auto-approval); if it fails, the draft waits for
+    the owner."""
 
     async def handle(job: Job) -> None:
         if job.ticket_id is None:
@@ -153,7 +158,7 @@ def make_process_ticket_handler(
                 )
                 log.info("ticket escalated at drafting: %s %s", reason, written.error or "")
                 return
-            await store.save_draft(
+            stored = await store.save_draft(
                 ticket.ticket_id,
                 written.draft,
                 passage_ids=written.passage_ids,
@@ -171,5 +176,10 @@ def make_process_ticket_handler(
                 written.attempt,
                 suggestion_only,
             )
+            if stored and after_draft is not None:
+                try:
+                    await after_draft(ticket.ticket_id)
+                except Exception:
+                    log.exception("auto-approval failed; the draft waits for the owner")
 
     return handle

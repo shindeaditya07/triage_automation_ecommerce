@@ -34,6 +34,11 @@ class ReviewState:
     reply_text: str  # the draft as the model wrote it
     final_text: str | None  # the owner's saved edit, if any
     edit: EditContext
+    classifier_confidence: float | None = None
+    draft_confidence: float = 0.0
+    draft_kind: DraftKind = DraftKind.LLM
+    flags: tuple[str, ...] = ()
+    escalation_reason: str | None = None
 
     @property
     def draft_id(self) -> UUID:
@@ -86,6 +91,7 @@ class ReviewStore:
                 tickets.c.status.label("ticket_status"),
                 tickets.c.flags,
                 tickets.c.escalation_reason,
+                tickets.c.confidence.label("classifier_confidence"),
                 tickets.c.customer_email,
                 tickets.c.subject,
                 tickets.c.body,
@@ -114,6 +120,13 @@ class ReviewStore:
             or row.suggestion_only,
             reply_text=row.reply_text,
             final_text=row.final_text,
+            classifier_confidence=(
+                float(row.classifier_confidence) if row.classifier_confidence is not None else None
+            ),
+            draft_confidence=float(row.confidence),
+            draft_kind=DraftKind(row.kind),
+            flags=tuple(row.flags),
+            escalation_reason=row.escalation_reason,
             edit=EditContext(
                 draft_id=row.draft_id,
                 customer_email=row.customer_email,
@@ -220,8 +233,17 @@ class ReviewStore:
                     },
                 )
 
-    async def approve(self, ticket_id: UUID, state: ReviewState, actor: str, now: datetime) -> str:
-        """Approve the text that was checked. Returns it."""
+    async def approve(
+        self,
+        ticket_id: UUID,
+        state: ReviewState,
+        actor: str,
+        now: datetime,
+        automatic: dict[str, Any] | None = None,
+    ) -> str:
+        """Approve the text that was checked. Returns it. `automatic` is what let the system
+        approve it without the owner (confidences and threshold): the event is then
+        `ticket.auto_approved` and carries it."""
         text = state.effective_text
         async with self._engine.begin() as conn:
             await self._close_check(conn, ticket_id)
@@ -245,7 +267,7 @@ class ReviewStore:
             await self._event(
                 conn,
                 ticket_id,
-                "ticket.approved",
+                "ticket.approved" if automatic is None else "ticket.auto_approved",
                 actor,
                 now,
                 {
@@ -253,6 +275,7 @@ class ReviewStore:
                     "edited": text != state.reply_text,
                     "diff": edit_diff(state.reply_text, text) if text != state.reply_text else "",
                     "suggestion_only": state.suggestion_only,
+                    **(automatic or {}),
                 },
             )
         return text

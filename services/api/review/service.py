@@ -14,7 +14,7 @@ need a reason), and it is recorded as an approved draft of kind `owner` and mock
 import logging
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import UUID
 
 from services.api.auth.service import Owner
@@ -24,6 +24,7 @@ from services.api.grounding.edit import EditOverride, OverrideError, check_overr
 from services.api.grounding.models import RULES, RuleFailure, ValidationResult
 from services.api.grounding.sign_off import with_sign_off
 from services.api.models.enums import ReviewStatus, TicketStatus
+from services.api.review.auto import AUTO_APPROVER, auto_approve_block, confidence_of
 from services.api.review.models import (
     ApproveRequest,
     OverrideInput,
@@ -53,7 +54,12 @@ class ReviewStorePort(Protocol):
     ) -> None: ...
 
     async def approve(
-        self, ticket_id: UUID, state: ReviewState, actor: str, now: datetime
+        self,
+        ticket_id: UUID,
+        state: ReviewState,
+        actor: str,
+        now: datetime,
+        automatic: dict[str, Any] | None = None,
     ) -> str: ...
 
     async def reject(
@@ -235,6 +241,44 @@ class ReviewService:
             raise Conflict("this draft changed or was decided while you approved it") from None
         # The decision is recorded above. If recording the send fails, the ticket stays approved
         # and `send` below finishes it; the approval is never lost.
+        sent = await self._send(ticket_id)
+        return self._outcome(
+            ticket_id,
+            state,
+            ticket_status=TicketStatus.SENT if sent else TicketStatus.APPROVED,
+            review_status=ReviewStatus.APPROVED,
+            final_text=text,
+        )
+
+    async def auto_approve(self, ticket_id: UUID, threshold: float) -> ReviewOutcome | None:
+        """Approve and mock-send a fresh draft with no owner when it is clean and confident (see
+        `auto_approve_block`); None when it must wait for the owner. The text is checked again
+        with the same grounding rules an owner's approval uses, so a draft that would not pass
+        there does not pass here."""
+        state = await self._store.load(ticket_id)
+        if state is None:
+            return None
+        reason = auto_approve_block(state, threshold)
+        if reason is None and not self._check(state.effective_text, state).passed:
+            reason = "the text has grounding warnings"
+        if reason is not None:
+            log.info("not auto-approved: %s", reason)
+            return None
+        try:
+            text = await self._store.approve(
+                ticket_id,
+                state,
+                AUTO_APPROVER,
+                self._clock(),
+                automatic={
+                    "classifier_confidence": state.classifier_confidence,
+                    "draft_confidence": state.draft_confidence,
+                    "confidence": confidence_of(state),
+                    "threshold": threshold,
+                },
+            )
+        except NotOpen:
+            return None
         sent = await self._send(ticket_id)
         return self._outcome(
             ticket_id,

@@ -46,6 +46,9 @@ Nothing here changes a ticket.
   warnings need an override on record for exactly those rules (else 409). What is approved is the
   text that was checked: if another tab changed it in between, the approval fails (409). The
   decision, the actor and the edit diff go to the audit log (`ticket.approved`).
+- A draft is also approved with no owner, straight after it is stored, when it passes the same
+  grounding checks and both confidences reach `AUTO_APPROVE_THRESHOLD` (see the runbook). That
+  decision is `ticket.auto_approved` by `system:auto-approve`, and the ticket goes on to `sent`.
 - `POST /api/v1/tickets/{id}/reject` `{reason}` (at least 10 characters) records the reason
   (`ticket.rejected`).
 
