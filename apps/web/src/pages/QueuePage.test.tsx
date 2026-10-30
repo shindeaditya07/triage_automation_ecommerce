@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -270,5 +270,42 @@ describe("signing in", () => {
     await userEvent.type(screen.getByLabelText("Password"), "wrong");
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
     expect((await screen.findByRole("alert")).textContent).toBe(message);
+  });
+
+  it("lets the owner record a complaint from a dialog and refreshes the list", async () => {
+    let listed = 0;
+    const seen = app((method, p) => {
+      if (p === "/api/v1/tickets" && method === "GET") {
+        listed += 1;
+        return page([]);
+      }
+      if (p === "/api/v1/tickets/form" && method === "POST") return { status: 202, body: {} };
+      return undefined;
+    });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "New complaint" }));
+    const dialog = screen.getByRole("dialog");
+    await user.type(within(dialog).getByLabelText("Customer's email address"), "ravi@example.com");
+    await user.type(within(dialog).getByLabelText("Order number (optional)"), "RD-10002");
+    await user.type(within(dialog).getByLabelText("Message"), "Rang the shop, parcel is late.");
+    const before = listed;
+    await user.click(within(dialog).getByRole("button", { name: "Add complaint" }));
+
+    expect(await within(dialog).findByText(/Complaint recorded/)).toBeTruthy();
+    const sent = JSON.parse(seen.find((r) => r.path === "/api/v1/tickets/form")!.body);
+    expect(sent).toMatchObject({
+      email: "ravi@example.com",
+      order_id: "RD-10002",
+      message: "Rang the shop, parcel is late.",
+      website: "",
+    });
+    await waitFor(() => expect(listed).toBeGreaterThan(before));
+
+    await user.click(within(dialog).getByRole("button", { name: "Add another complaint" }));
+    expect(
+      (within(dialog).getByLabelText("Customer's email address") as HTMLInputElement).value,
+    ).toBe("");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

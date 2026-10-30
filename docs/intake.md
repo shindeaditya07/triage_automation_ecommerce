@@ -46,6 +46,11 @@ address against it, so nothing about the order is shown on the page. The page ge
 from people and screen readers, and answers every refusal in plain words (429, 413, 422, 503).
 Attachments are not offered, because only their metadata would be stored.
 
+The same form is also a **New complaint** button on the owner queue (a dialog), for a complaint that
+arrives by phone or chat. It posts through the same public endpoint, so the ticket looks like any
+other `form` ticket: the audit log does not record that the owner typed it, and it counts against the
+same per-address rate limit (3 a minute from one network).
+
 Because the form endpoint is rate limited per address (3 a minute, 10 an hour), a store that wants to
 push many customers' messages from its own server should use the signed email endpoint below, which
 is not rate limited per address. A browser page on a *different* site cannot call the form endpoint
