@@ -16,6 +16,9 @@ from services.api.auth.routes import router as auth_router
 from services.api.auth.service import AuthService
 from services.api.auth.store import AuthStore, PostgresAuthStore
 from services.api.clock import Clock, utc_now
+from services.api.erasure.routes import router as erasure_router
+from services.api.erasure.service import ErasureService
+from services.api.erasure.store import ErasureStore
 from services.api.grounding.routes import EditContextSource, EditValidationRuntime
 from services.api.grounding.routes import router as grounding_router
 from services.api.health import Database, check_readiness, open_database
@@ -124,6 +127,7 @@ def create_app(
     ticket_reader: TicketReader | None = None,
     metrics_reader: MetricsReader | None = None,
     review_service: ReviewService | None = None,
+    erasure_service: ErasureService | None = None,
 ) -> FastAPI:
     """Build the app. Tests pass an engine, auth settings, a store and a clock; otherwise the
     database and auth settings come from the environment.
@@ -175,6 +179,9 @@ def create_app(
             if database.engine
             else None
         )
+        app.state.erasure = erasure_service or (
+            ErasureService(ErasureStore(database.engine), clock) if database.engine else None
+        )
         runner = await _start_jobs(database, job_settings, handlers, clock, engine)
         try:
             yield
@@ -194,6 +201,7 @@ def create_app(
     app.include_router(tickets_router)
     app.include_router(metrics_router)
     app.include_router(review_router)
+    app.include_router(erasure_router)
 
     @app.exception_handler(SQLAlchemyError)
     @app.exception_handler(OSError)
