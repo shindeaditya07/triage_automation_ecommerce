@@ -42,6 +42,7 @@ select = ["E", "F", "W", "I", "B", "UP", "S", "C4", "SIM", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106", "RUF001"]  # tests use look-alike letters on purpose
+"scripts/make_test_complaints.py" = ["E501", "S311"]  # sample complaint text; a fixed seed, not security
 "services/api/textnorm.py" = ["RUF001"]  # the confusables map is look-alike letters
 
 [tool.mypy]
