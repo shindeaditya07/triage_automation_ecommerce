@@ -20,7 +20,7 @@ export function TicketPage() {
     <div className="app">
       <header className="topbar">
         <h1>ReplyDesk</h1>
-        <Link to="/">← Back to the queue</Link>
+        <Link to="/tickets">← Back to the queue</Link>
       </header>
       <main id="main" tabIndex={-1} className="wide">
         {ticket.isPending && (
@@ -204,7 +204,7 @@ function TicketView({
         <EraseCustomerDialog
           email={ticket.customer_email}
           onClose={() => setDialog(null)}
-          onErased={() => navigate("/")}
+          onErased={() => navigate("/tickets")}
         />
       )}
     </>

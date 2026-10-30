@@ -114,7 +114,7 @@ describe("accessibility", () => {
   });
 
   it("has a skip link, titles each page and moves focus to the content on navigation", async () => {
-    open("/");
+    open("/tickets");
     await screen.findByText("Return my water bottle");
     expect(screen.getByRole("link", { name: "Skip to content" }).getAttribute("href")).toBe(
       "#main",
@@ -127,7 +127,7 @@ describe("accessibility", () => {
   });
 
   it("moves between the queue tabs with the arrow keys, one tab stop for the group", async () => {
-    open("/");
+    open("/tickets");
     await screen.findByText("Return my water bottle");
     const tabs = screen.getAllByRole("tab");
     expect(tabs.map((t) => t.getAttribute("tabindex"))).toEqual([
@@ -157,7 +157,7 @@ describe("accessibility", () => {
   });
 
   it("the queue has none", async () => {
-    open("/");
+    open("/tickets");
     await screen.findByText("Return my water bottle");
     expect(await a11yProblems()).toEqual([]);
   });
@@ -175,7 +175,7 @@ describe("accessibility", () => {
   });
 
   it("the metrics page has none", async () => {
-    open("/metrics");
+    open("/");
     await screen.findByText("Cost per ticket, by day");
     expect(await a11yProblems()).toEqual([]);
   });
@@ -184,5 +184,35 @@ describe("accessibility", () => {
     open(`/audit/${ID}`);
     await screen.findByText("Draft ready for review");
     expect(await a11yProblems()).toEqual([]);
+  });
+
+  it("opens on the metrics page, with a way to the tickets and to sign out", async () => {
+    open("/");
+    await screen.findByText("Cost per ticket, by day");
+    expect(document.title).toBe("Metrics · ReplyDesk");
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Metrics" }).getAttribute("aria-current")).toBe("page");
+    await userEvent.setup().click(screen.getByRole("link", { name: "Tickets" }));
+    await screen.findByText("Return my water bottle");
+    expect(document.title).toBe("Queue · ReplyDesk");
+    expect(window.location.pathname).toBe("/tickets");
+  });
+
+  it("sends the old /metrics address to the home page", async () => {
+    open("/metrics");
+    await screen.findByText("Cost per ticket, by day");
+    expect(window.location.pathname).toBe("/");
+  });
+
+  it("goes back to the queue at /tickets from a ticket and from the audit log", async () => {
+    open(`/tickets/${ID}`);
+    const back = await screen.findByRole("link", { name: /Back to the queue/ });
+    expect(back.getAttribute("href")).toBe("/tickets");
+    cleanup();
+    open(`/audit/${ID}`);
+    await screen.findByText("Draft ready for review");
+    expect(screen.getByRole("link", { name: /Back to the queue/ }).getAttribute("href")).toBe(
+      "/tickets",
+    );
   });
 });

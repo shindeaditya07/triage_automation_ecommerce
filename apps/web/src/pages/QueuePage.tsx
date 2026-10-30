@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
-import { useLogout, useMe } from "../api/auth";
 import { PAGE_SIZE, useTickets } from "../api/tickets";
 import { ContactForm } from "../components/ContactForm";
 import { Modal } from "../components/Modal";
+import { TopBar } from "../components/TopBar";
 import { TicketRow } from "../components/TicketRow";
 import { useListKeys } from "../hooks/useListKeys";
 import { useTitle } from "../hooks/useTitle";
@@ -20,8 +20,6 @@ export function QueuePage() {
   const queryClient = useQueryClient();
   const tab = QUEUE_TABS.find((t) => t.id === tabId) ?? QUEUE_TABS[0]!;
   const tickets = useTickets(tab.statuses, page);
-  const me = useMe();
-  const logout = useLogout();
   const waking = useWakingUp(tickets.isPending);
   const items = tickets.data?.items ?? [];
   const navigate = useNavigate();
@@ -34,20 +32,11 @@ export function QueuePage() {
 
   return (
     <div className="app">
-      <header className="topbar">
-        <h1>ReplyDesk</h1>
-        <span className="who">
-          <Link to="/metrics">Metrics</Link>
-          <Link to="/audit">Audit log</Link>
-          <button type="button" onClick={() => setAdding(true)}>
-            New complaint
-          </button>
-          {me.data?.email}{" "}
-          <button type="button" onClick={() => logout.mutate()}>
-            Sign out
-          </button>
-        </span>
-      </header>
+      <TopBar>
+        <button type="button" onClick={() => setAdding(true)}>
+          New complaint
+        </button>
+      </TopBar>
       <main id="main" tabIndex={-1}>
         <div
           role="tablist"
