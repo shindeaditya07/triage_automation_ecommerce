@@ -30,7 +30,6 @@ export function TopBar({ children }: { children?: ReactNode }) {
         <NavLink to="/tickets" end>
           Tickets
         </NavLink>
-        <NavLink to="/audit">Audit log</NavLink>
         {children}
         {me.data?.email}{" "}
         <button type="button" onClick={() => logout.mutate()}>

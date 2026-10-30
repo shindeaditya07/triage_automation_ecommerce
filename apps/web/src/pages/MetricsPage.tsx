@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useMetrics } from "../api/metrics";
 import { TopBar } from "../components/TopBar";
 import { BarList, CostLine, StackedBars } from "../components/charts";
-import { daysBefore, duration, istToday, percent, rupees } from "../format";
+import { daysBefore, istToday, percent, rupees } from "../format";
 import { metricsCsv } from "../metricsCsv";
 import { useTitle } from "../hooks/useTitle";
 
@@ -77,6 +77,7 @@ export function MetricsPage() {
           )}
           <button
             type="button"
+            className="push-right"
             disabled={!report}
             onClick={() =>
               report &&
@@ -125,16 +126,6 @@ export function MetricsPage() {
                 label="Fallback rate"
                 value={percent(report.fallback.rate)}
                 note={`${report.fallback.numerator} of ${report.fallback.denominator} drafted tickets`}
-              />
-              <Tile
-                label="Time to draft"
-                value={duration(report.time_to_draft_seconds.p50)}
-                note={`median; 95th percentile ${duration(report.time_to_draft_seconds.p95)}`}
-              />
-              <Tile
-                label="Time to send"
-                value={duration(report.time_to_send_business_seconds.p50)}
-                note={`median in support hours (Mon–Sat 10:00–18:00 IST); 95th ${duration(report.time_to_send_business_seconds.p95)}`}
               />
               <Tile
                 label="Cost per ticket"

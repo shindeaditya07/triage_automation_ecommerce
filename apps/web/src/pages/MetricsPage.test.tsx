@@ -41,7 +41,8 @@ describe("the metrics page", () => {
     expect(await screen.findByText("50.0%")).toBeTruthy(); // draft acceptance
     expect(screen.getByText("25.0%")).toBeTruthy(); // escalation rate
     expect(screen.getByText("₹0.3750")).toBeTruthy();
-    expect(screen.getByText("12s")).toBeTruthy(); // time to draft, median
+    expect(screen.queryByText("Time to draft")).toBeNull();
+    expect(screen.queryByText("Time to send")).toBeNull();
     expect(screen.getByText("Grounding failures caught, by rule")).toBeTruthy();
     expect(screen.getByText("RET-1.1")).toBeTruthy();
     expect(screen.getByText(/3 high/)).toBeTruthy();
