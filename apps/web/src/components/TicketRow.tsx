@@ -7,9 +7,11 @@ interface Props {
   ticket: TicketSummary;
   selected: boolean;
   now: number;
+  /** The queue address this row was listed on, so the ticket page can go back to it. */
+  returnTo: string;
 }
 
-export function TicketRow({ ticket, selected, now }: Props) {
+export function TicketRow({ ticket, selected, now, returnTo }: Props) {
   const injection = ticket.flags.includes("prompt_injection_suspected");
   const classes = ["ticket"];
   if (ticket.status === "escalated") classes.push("escalated");
@@ -17,7 +19,11 @@ export function TicketRow({ ticket, selected, now }: Props) {
   return (
     <li className={classes.join(" ")} aria-current={selected ? "true" : undefined}>
       <div className="ticket-main">
-        <Link className="ticket-subject" to={`/tickets/${ticket.ticket_id}`}>
+        <Link
+          className="ticket-subject"
+          to={`/tickets/${ticket.ticket_id}`}
+          state={{ from: returnTo }}
+        >
           {ticket.subject || "(no subject)"}
         </Link>
         <span className="ticket-from">
