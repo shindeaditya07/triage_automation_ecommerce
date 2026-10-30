@@ -22,6 +22,7 @@ from services.api.erasure.store import ErasureStore
 from services.api.grounding.routes import EditContextSource, EditValidationRuntime
 from services.api.grounding.routes import router as grounding_router
 from services.api.health import Database, check_readiness, open_database
+from services.api.intake.bulk import router as bulk_router
 from services.api.intake.routes import IntakeRuntime
 from services.api.intake.routes import router as intake_router
 from services.api.intake.service import IntakeService
@@ -206,6 +207,7 @@ def create_app(
     app.add_middleware(SecurityHeadersMiddleware)  # outermost: covers every response, errors too
     app.include_router(auth_router)
     app.include_router(intake_router)
+    app.include_router(bulk_router)
     app.include_router(grounding_router)
     app.include_router(tickets_router)
     app.include_router(metrics_router)

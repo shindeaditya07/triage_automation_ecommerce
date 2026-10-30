@@ -16,6 +16,14 @@ database they answer 503.
   is suggestion-only, or holds the fallback template, so the queue can show the owner-visible
   notice. Soft-deleted tickets never appear. The queue page keeps the filters and sort in its
   address (`/tickets?urgency=critical,high&intent=refund&sort=urgency`).
+- `POST /api/v1/tickets/bulk` `{batch_id, complaints: [{name?, email, order_id?, subject?, message}]}`
+  (owner only, CSRF header required, 1 to 250 complaints) records many complaints at once, each as
+  if it had come through the contact form (same cleaning, same queue, channel `form`). It has no
+  per-address rate limit because only the owner can call it. The answer is `{received, duplicates,
+  rejected: [{row, reason}]}`: a bad row (not an email, empty or too long message, a field the form
+  does not have) is listed by its number and never stops the rest. Sending the same `batch_id` again
+  makes no second ticket for any row. The web app's **Bulk upload** page (`/upload`) reads a CSV and
+  sends it in batches of 50.
 - `GET /api/v1/tickets/{ticket_id}` is the whole ticket: the customer's original message, the
   classification and flags, the order snapshot the draft was made from, and the latest draft with
   its citations, the full text of each cited policy passage, and the grounding result.

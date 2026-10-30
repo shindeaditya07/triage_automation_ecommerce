@@ -130,6 +130,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tickets/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Complaints */
+        post: operations["upload_complaints_api_v1_tickets_bulk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tickets/email": {
         parameters: {
             query?: never;
@@ -401,6 +418,27 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** BulkRequest */
+        BulkRequest: {
+            /**
+             * Batch Id
+             * Format: uuid
+             */
+            batch_id: string;
+            /** Complaints */
+            complaints: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** BulkResult */
+        BulkResult: {
+            /** Duplicates */
+            duplicates: number;
+            /** Received */
+            received: number;
+            /** Rejected */
+            rejected: components["schemas"]["RejectedRow"][];
+        };
         /**
          * Channel
          * @enum {string}
@@ -641,6 +679,13 @@ export interface components {
         RejectRequest: {
             /** Reason */
             reason: string;
+        };
+        /** RejectedRow */
+        RejectedRow: {
+            /** Reason */
+            reason: string;
+            /** Row */
+            row: number;
         };
         /** RetryResult */
         RetryResult: {
@@ -1096,6 +1141,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TicketPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_complaints_api_v1_tickets_bulk_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkResult"];
                 };
             };
             /** @description Validation Error */

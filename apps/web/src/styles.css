@@ -958,3 +958,39 @@ select:focus-visible {
     position: static;
   }
 }
+.upload {
+  max-width: 50rem;
+  display: grid;
+  gap: 1rem;
+}
+.upload .file {
+  display: grid;
+  gap: 0.35rem;
+  font-weight: 600;
+}
+.upload code {
+  background: var(--accent-soft);
+  padding: 0.05rem 0.35rem;
+  border-radius: 6px;
+}
+.preview {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  font-size: 0.9rem;
+}
+.preview th,
+.preview td {
+  text-align: left;
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.preview th {
+  color: var(--muted);
+  font-weight: 600;
+}

@@ -5,9 +5,10 @@ Two endpoints turn a customer message into a ticket and queue it for processing.
 | Endpoint | Who calls it | Authentication |
 |---|---|---|
 | `POST /api/v1/tickets/form` | the contact form on the store's site | none (public); rate limited, honeypot |
+| `POST /api/v1/tickets/bulk` | the owner's Bulk upload page (`/upload`), a CSV of complaints | owner session (CSRF header); no per-address limit |
 | `POST /api/v1/tickets/email` | whatever forwards inbound email | HMAC-SHA256 signature of the body |
 
-Both accept `application/json` only, and both write the same thing: a ticket (status `new`), an
+All three accept `application/json` only, and all write the same thing: a ticket (status `new`), an
 `audit_log` entry (`ticket.ingested`) and a `process_ticket` job, in **one transaction**. A ticket
 never exists without its job.
 
