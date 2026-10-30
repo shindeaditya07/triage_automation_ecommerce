@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 
 import { api, unwrap } from "./client";
 import type { components } from "./schema";
+import { NO_FILTERS, type QueueFilters } from "../pages/queueTabs";
 
 export type TicketStatus = components["schemas"]["TicketStatus"];
 export type TicketSummary = components["schemas"]["TicketSummary"];
@@ -9,14 +10,25 @@ export type TicketSummary = components["schemas"]["TicketSummary"];
 export const PAGE_SIZE = 25;
 export const POLL_MS = 30_000;
 
-export function useTickets(statuses: readonly TicketStatus[], page: number) {
+export function useTickets(
+  statuses: readonly TicketStatus[],
+  page: number,
+  filters: QueueFilters = NO_FILTERS,
+) {
   return useQuery({
-    queryKey: ["tickets", [...statuses], page],
+    queryKey: ["tickets", [...statuses], page, filters],
     queryFn: () =>
       unwrap(
         api.GET("/api/v1/tickets", {
           params: {
-            query: { status: [...statuses], limit: PAGE_SIZE, offset: page * PAGE_SIZE },
+            query: {
+              status: [...statuses],
+              urgency: [...filters.urgency],
+              intent: [...filters.intent],
+              sort: filters.sort,
+              limit: PAGE_SIZE,
+              offset: page * PAGE_SIZE,
+            },
           },
         }),
       ),

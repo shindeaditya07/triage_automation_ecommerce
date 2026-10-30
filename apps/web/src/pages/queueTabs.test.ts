@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { QUEUE_TABS, queueAddress, tabForStatus } from "./queueTabs";
+import { NO_FILTERS, QUEUE_TABS, queueAddress, readFilters, tabForStatus } from "./queueTabs";
 
 describe("queue addresses", () => {
   it("leaves the default tab and first page out of the address", () => {
@@ -35,5 +35,23 @@ describe("queue addresses", () => {
       "Failed",
     ]);
     expect(QUEUE_TABS[0]!.statuses).toEqual([]);
+  });
+
+  it("keeps the filters and sort in the address, and leaves the defaults out", () => {
+    const filters = { urgency: ["critical", "high"], intent: ["refund"], sort: "urgency" } as const;
+    expect(queueAddress("escalated", 2, filters)).toBe(
+      "/tickets?tab=escalated&page=2&urgency=critical%2Chigh&intent=refund&sort=urgency",
+    );
+    expect(queueAddress("all", 1, NO_FILTERS)).toBe("/tickets");
+  });
+
+  it("reads filters back, in a fixed order, and ignores what it does not know", () => {
+    const params = new URLSearchParams("urgency=high,bogus,critical&intent=x&sort=nope");
+    expect(readFilters(params)).toEqual({
+      urgency: ["critical", "high"],
+      intent: [],
+      sort: "newest",
+    });
+    expect(readFilters(new URLSearchParams("sort=confidence_low")).sort).toBe("confidence_low");
   });
 });

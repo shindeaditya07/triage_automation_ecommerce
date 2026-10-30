@@ -2,10 +2,11 @@
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, func, select, true
+from sqlalchemy import ColumnElement, case, func, nulls_last, select, true
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from services.api.db.tables import audit_log, drafts, order_snapshots, tickets
@@ -16,6 +17,7 @@ from services.api.models.enums import (
     Intent,
     SourceType,
     TicketStatus,
+    Urgency,
 )
 from services.api.tickets.models import (
     AuditEvent,
@@ -37,10 +39,45 @@ def needs_original_viewed(status: str, flags: Sequence[str], escalation_reason: 
     )
 
 
+class TicketSort(StrEnum):
+    NEWEST = "newest"
+    OLDEST = "oldest"
+    URGENCY = "urgency"  # most urgent first, newest first within an urgency
+    CONFIDENCE_LOW = "confidence_low"  # least sure first: the replies that most need a look
+    CONFIDENCE_HIGH = "confidence_high"
+
+
 @dataclass(frozen=True)
 class TicketFilter:
     statuses: Sequence[TicketStatus] = ()
-    intent: Intent | None = None
+    intents: Sequence[Intent] = ()
+    urgencies: Sequence[Urgency] = ()
+    sort: TicketSort = TicketSort.NEWEST
+
+
+_URGENCY_RANK = case(
+    {
+        Urgency.CRITICAL.value: 0,
+        Urgency.HIGH.value: 1,
+        Urgency.NORMAL.value: 2,
+        Urgency.LOW.value: 3,
+    },
+    value=tickets.c.urgency,
+    else_=4,  # not classified yet: after every urgency
+)
+
+
+def _order_by(sort: TicketSort) -> list[ColumnElement[Any]]:
+    newest: list[ColumnElement[Any]] = [tickets.c.received_at.desc(), tickets.c.ticket_id.desc()]
+    if sort is TicketSort.OLDEST:
+        return [tickets.c.received_at.asc(), tickets.c.ticket_id.asc()]
+    if sort is TicketSort.URGENCY:
+        return [_URGENCY_RANK, *newest]
+    if sort is TicketSort.CONFIDENCE_LOW:
+        return [nulls_last(tickets.c.confidence.asc()), *newest]
+    if sort is TicketSort.CONFIDENCE_HIGH:
+        return [nulls_last(tickets.c.confidence.desc()), *newest]
+    return newest
 
 
 class TicketReadStore:
@@ -52,8 +89,10 @@ class TicketReadStore:
         where: list[ColumnElement[bool]] = [tickets.c.deleted_at.is_(None)]
         if flt.statuses:
             where.append(tickets.c.status.in_([s.value for s in flt.statuses]))
-        if flt.intent is not None:
-            where.append(tickets.c.intent == flt.intent.value)
+        if flt.intents:
+            where.append(tickets.c.intent.in_([i.value for i in flt.intents]))
+        if flt.urgencies:
+            where.append(tickets.c.urgency.in_([u.value for u in flt.urgencies]))
         latest = (
             select(drafts.c.suggestion_only, drafts.c.kind)
             .where(drafts.c.ticket_id == tickets.c.ticket_id)
@@ -71,7 +110,7 @@ class TicketReadStore:
             )
             .select_from(tickets.outerjoin(latest, true()))
             .where(*where)
-            .order_by(tickets.c.received_at.desc(), tickets.c.ticket_id.desc())
+            .order_by(*_order_by(flt.sort))
             .limit(limit)
             .offset(offset)
         )

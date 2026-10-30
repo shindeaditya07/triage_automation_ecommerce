@@ -105,17 +105,23 @@ def test_both_routes_need_a_signed_in_owner(client: TestClient) -> None:
 def test_the_queue_passes_its_filters_through(client: TestClient, reader: Reader) -> None:
     login(client)
     response = client.get(
-        "/api/v1/tickets?status=drafted&status=escalated&intent=refund&limit=10&offset=20"
+        "/api/v1/tickets?status=drafted&status=escalated&intent=refund&intent=return"
+        "&urgency=critical&sort=confidence_low&limit=10&offset=20"
     )
     assert response.status_code == 200
     assert response.json()["total"] == 1
     [(flt, limit, offset)] = reader.filters
     assert [s.value for s in flt.statuses] == ["drafted", "escalated"]
-    assert flt.intent is not None and flt.intent.value == "refund"
+    assert [i.value for i in flt.intents] == ["refund", "return"]
+    assert [u.value for u in flt.urgencies] == ["critical"]
+    assert flt.sort.value == "confidence_low"
     assert (limit, offset) == (10, 20)
 
 
-@pytest.mark.parametrize("query", ["status=bogus", "limit=0", "limit=101", "offset=-1", "intent=x"])
+@pytest.mark.parametrize(
+    "query",
+    ["status=bogus", "limit=0", "limit=101", "offset=-1", "intent=x", "urgency=x", "sort=x"],
+)
 def test_bad_parameters_are_422(client: TestClient, query: str) -> None:
     login(client)
     assert client.get(f"/api/v1/tickets?{query}").status_code == 422

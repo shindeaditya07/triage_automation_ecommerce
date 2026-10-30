@@ -76,7 +76,7 @@ describe("the queue", () => {
     );
     expect(await screen.findByText("48213907 - Subject a")).toBeTruthy();
     expect(screen.getByText("owner@example.com")).toBeTruthy();
-    expect(screen.getByText("Critical")).toBeTruthy();
+    expect(document.querySelector(".badge.urgency-critical")?.textContent).toBe("Critical");
     expect(screen.getByText(/Suspected injection/)).toBeTruthy();
     expect(screen.getByText("Suggestion only")).toBeTruthy();
     expect(screen.getByText("Fallback reply")).toBeTruthy();
@@ -102,6 +102,34 @@ describe("the queue", () => {
       ).toBe(true),
     );
     expect(await screen.findByText(/Nothing in “Escalated”/)).toBeTruthy();
+  });
+
+  it("sends the sidebar's filters and sort with the request and goes back to page one", async () => {
+    const seen = app(() => page([ticket("a")]), "/?page=3");
+    await screen.findByText("48213907 - Subject a");
+    await userEvent.click(screen.getByRole("checkbox", { name: "Critical" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Refund" }));
+    await userEvent.selectOptions(screen.getByLabelText("Sort by"), "confidence_low");
+    await waitFor(() => {
+      const last = seen.filter((r) => r.path === "/api/v1/tickets").at(-1)!;
+      expect(last.search.getAll("urgency")).toEqual(["critical"]);
+      expect(last.search.getAll("intent")).toEqual(["refund"]);
+      expect(last.search.get("sort")).toBe("confidence_low");
+      expect(last.search.get("offset")).toBe("0");
+    });
+  });
+
+  it("starts from the filters in the address and clears them with one button", async () => {
+    const seen = app(() => page([]), "/?urgency=high&intent=payment&sort=oldest");
+    expect(await screen.findByText(/matches these filters/)).toBeTruthy();
+    expect((screen.getByRole("checkbox", { name: "High" }) as HTMLInputElement).checked).toBe(true);
+    const first = seen.find((r) => r.path === "/api/v1/tickets")!;
+    expect(first.search.getAll("urgency")).toEqual(["high"]);
+    expect(first.search.getAll("intent")).toEqual(["payment"]);
+    expect(first.search.get("sort")).toBe("oldest");
+    await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(await screen.findByText(/Nothing in “All” right now/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Clear filters" })).toBeNull();
   });
 
   it("tags each ticket with the tab it is filed under, even when listed under All", async () => {
