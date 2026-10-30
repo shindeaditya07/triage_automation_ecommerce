@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { useAudit, useTicket, type TicketDetail } from "../api/tickets";
 import { DraftEditor } from "../components/DraftEditor";
@@ -8,6 +8,7 @@ import { OwnerReply } from "../components/OwnerReply";
 import { ApproveDialog, EraseCustomerDialog, RejectDialog } from "../components/ReviewDialogs";
 import { humanize } from "../format";
 import { useTitle } from "../hooks/useTitle";
+import { queueAddress, tabForStatus } from "./queueTabs";
 
 type Dialog = "approve" | "reject" | "erase" | null;
 
@@ -16,11 +17,20 @@ export function TicketPage() {
   const ticket = useTicket(ticketId);
   const audit = useAudit(ticketId);
   useTitle(ticket.data?.subject ?? "Ticket");
+  // Back goes to the queue tab the ticket was opened from. A direct link or a refresh has no
+  // such memory, so it falls back to the tab the ticket's status belongs to.
+  const from = (useLocation().state as { from?: unknown } | null)?.from;
+  const back =
+    typeof from === "string" && from.startsWith("/tickets")
+      ? from
+      : ticket.data
+        ? queueAddress(tabForStatus(ticket.data.status).id)
+        : "/tickets";
   return (
     <div className="app">
       <header className="topbar">
         <h1>ReplyDesk</h1>
-        <Link to="/tickets">← Back to the queue</Link>
+        <Link to={back}>← Back to the queue</Link>
       </header>
       <main id="main" tabIndex={-1} className="wide">
         {ticket.isPending && (

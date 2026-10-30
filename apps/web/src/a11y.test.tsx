@@ -215,4 +215,39 @@ describe("accessibility", () => {
       "/tickets",
     );
   });
+
+  it("keeps the queue tab in the address and Back returns to it from a ticket", async () => {
+    open("/tickets?tab=escalated");
+    await screen.findByText("Return my water bottle");
+    expect(screen.getByRole("tab", { name: "Escalated" }).getAttribute("aria-selected")).toBe(
+      "true",
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("tab", { name: "Approved" }));
+    expect(window.location.search).toBe("?tab=approved");
+    await user.click(screen.getByRole("tab", { name: "Escalated" }));
+    await user.click(screen.getByRole("link", { name: "Return my water bottle" }));
+    const back = await screen.findByRole("link", { name: /Back to the queue/ });
+    expect(back.getAttribute("href")).toBe("/tickets?tab=escalated");
+    await user.click(back);
+    await screen.findByText("Return my water bottle");
+    expect(window.location.search).toBe("?tab=escalated");
+    expect(screen.getByRole("tab", { name: "Escalated" }).getAttribute("aria-selected")).toBe(
+      "true",
+    );
+  });
+
+  it("opens a ticket reached by a direct link with Back going to its own tab", async () => {
+    open(`/tickets/${ID}`);
+    const back = await screen.findByRole("link", { name: /Back to the queue/ });
+    expect(back.getAttribute("href")).toBe("/tickets");
+  });
+
+  it("ignores a tab it does not know", async () => {
+    open("/tickets?tab=nonsense&page=abc");
+    await screen.findByText("Return my water bottle");
+    expect(screen.getByRole("tab", { name: "In progress" }).getAttribute("aria-selected")).toBe(
+      "true",
+    );
+  });
 });

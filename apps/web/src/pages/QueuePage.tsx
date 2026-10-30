@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { PAGE_SIZE, useTickets } from "../api/tickets";
 import { ContactForm } from "../components/ContactForm";
@@ -10,22 +10,29 @@ import { TicketRow } from "../components/TicketRow";
 import { useListKeys } from "../hooks/useListKeys";
 import { useTitle } from "../hooks/useTitle";
 import { useWakingUp } from "../hooks/useWakingUp";
-import { QUEUE_TABS } from "./queueTabs";
+import { QUEUE_TABS, queueAddress } from "./queueTabs";
 
 export function QueuePage() {
   useTitle("Queue");
-  const [tabId, setTabId] = useState(QUEUE_TABS[0]!.id);
-  const [page, setPage] = useState(0);
+  // The tab and page live in the address, so Back, a refresh and a shared link all return here.
+  const [params, setParams] = useSearchParams();
+  const tab = QUEUE_TABS.find((t) => t.id === params.get("tab")) ?? QUEUE_TABS[0]!;
+  const pageParam = Number(params.get("page"));
+  const page = Number.isInteger(pageParam) && pageParam > 1 ? pageParam - 1 : 0;
+  const here = queueAddress(tab.id, page + 1);
+  function go(tabId: string, pageIndex: number) {
+    const target = new URL(queueAddress(tabId, pageIndex + 1), "http://x");
+    setParams(target.searchParams, { replace: true });
+  }
   const [adding, setAdding] = useState(false);
   const queryClient = useQueryClient();
-  const tab = QUEUE_TABS.find((t) => t.id === tabId) ?? QUEUE_TABS[0]!;
   const tickets = useTickets(tab.statuses, page);
   const waking = useWakingUp(tickets.isPending);
   const items = tickets.data?.items ?? [];
   const navigate = useNavigate();
   const selected = useListKeys(items.length, (index) => {
     const ticket = items[index];
-    if (ticket) navigate(`/tickets/${ticket.ticket_id}`);
+    if (ticket) navigate(`/tickets/${ticket.ticket_id}`, { state: { from: here } });
   });
   const total = tickets.data?.total ?? 0;
   const now = Date.now();
@@ -56,8 +63,7 @@ export function QueuePage() {
                       : -1;
             if (to < 0) return;
             event.preventDefault();
-            setTabId(QUEUE_TABS[to]!.id);
-            setPage(0);
+            go(QUEUE_TABS[to]!.id, 0);
             document.getElementById(`tab-${QUEUE_TABS[to]!.id}`)?.focus();
           }}
         >
@@ -70,10 +76,7 @@ export function QueuePage() {
               aria-selected={t.id === tab.id}
               aria-controls="queue-panel"
               tabIndex={t.id === tab.id ? 0 : -1}
-              onClick={() => {
-                setTabId(t.id);
-                setPage(0);
-              }}
+              onClick={() => go(t.id, 0)}
             >
               {t.label}
             </button>
@@ -115,6 +118,7 @@ export function QueuePage() {
                   ticket={ticket}
                   selected={index === selected}
                   now={now}
+                  returnTo={here}
                 />
               ))}
             </ul>
@@ -122,7 +126,7 @@ export function QueuePage() {
 
           {total > PAGE_SIZE && (
             <nav className="pager" aria-label="Pages">
-              <button type="button" disabled={page === 0} onClick={() => setPage(page - 1)}>
+              <button type="button" disabled={page === 0} onClick={() => go(tab.id, page - 1)}>
                 Previous
               </button>
               <span>
@@ -131,7 +135,7 @@ export function QueuePage() {
               <button
                 type="button"
                 disabled={(page + 1) * PAGE_SIZE >= total}
-                onClick={() => setPage(page + 1)}
+                onClick={() => go(tab.id, page + 1)}
               >
                 Next
               </button>
