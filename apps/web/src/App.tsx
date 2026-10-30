@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 
 import { RequireOwner } from "./components/RequireOwner";
 import { AuditPage } from "./pages/AuditPage";
+import { ContactPage } from "./pages/ContactPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MetricsPage } from "./pages/MetricsPage";
 import { QueuePage } from "./pages/QueuePage";
@@ -37,6 +38,7 @@ export function App() {
       <SkipLink />
       <FocusOnNavigate />
       <Routes>
+        <Route path="/contact" element={<ContactPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route
           path="/"
