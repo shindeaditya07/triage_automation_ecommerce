@@ -56,6 +56,12 @@ describe("describeEvent", () => {
     expect(view.lines).toContain("2 model calls, ₹0.7500");
   });
 
+  it("names a retry and where processing resumed", () => {
+    const view = describeEvent(event("ticket.retried", { resumed_at: "classified" }));
+    expect(view.label).toBe("Owner retried processing");
+    expect(view.lines).toEqual(["Resumed at: Classified"]);
+  });
+
   it("shows the owner's decisions with their reasons and diff", () => {
     expect(
       describeEvent(event("ticket.rejected", { reason: "wrong policy cited" })).lines,

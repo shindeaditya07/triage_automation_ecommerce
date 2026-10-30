@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
-import { useAudit, useTicket, type TicketDetail } from "../api/tickets";
+import { useAudit, useRetry, useTicket, type TicketDetail } from "../api/tickets";
 import { DraftEditor } from "../components/DraftEditor";
 import { ActivityList, EvidencePanel } from "../components/EvidencePanel";
 import { OwnerReply } from "../components/OwnerReply";
 import { ApproveDialog, EraseCustomerDialog } from "../components/ReviewDialogs";
 import { complaintTitle, humanize } from "../format";
 import { useTitle } from "../hooks/useTitle";
+import { errorMessage } from "../ticketView";
 import { queueAddress, tabForStatus } from "./queueTabs";
 
 type Dialog = "approve" | "erase" | null;
@@ -56,6 +57,23 @@ function typingIn(target: EventTarget | null): boolean {
   return (
     target instanceof HTMLElement &&
     (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+  );
+}
+
+function RetryButton({ ticketId }: { ticketId: string }) {
+  const retry = useRetry(ticketId);
+  return (
+    <p>
+      <button type="button" disabled={retry.isPending} onClick={() => retry.mutate()}>
+        {retry.isPending ? "Retrying…" : "Retry processing"}
+      </button>
+      {retry.isError && (
+        <span className="error" role="alert">
+          {" "}
+          {errorMessage(retry.error)}
+        </span>
+      )}
+    </p>
   );
 }
 
@@ -113,6 +131,7 @@ function TicketView({
           Processing failed: {ticket.failure_reason}
         </p>
       )}
+      {ticket.status === "failed" && <RetryButton ticketId={ticket.ticket_id} />}
 
       <div className="detail-grid">
         <section aria-label="Customer message" className="panel">

@@ -74,6 +74,14 @@ system.** If recording the send fails, the ticket stays `approved` (the approval
 `POST /api/v1/tickets/{id}/send` finishes it; calling it again, or on a ticket already sent, changes
 nothing.
 
+## Retry a failed ticket
+
+`POST /api/v1/tickets/{ticket_id}/retry` (owner only, CSRF header required) puts a `failed` ticket
+back at the stage it had reached (`drafted` if it has a draft, `classified` if it was classified,
+otherwise `new`), clears its failure reason, gives its job three fresh tries and answers
+`{"ticket_id", "status"}` with the status it resumed at. The audit log gets `ticket.retried`. 404
+for an unknown or erased ticket, 409 when the ticket has not failed.
+
 ## Erase a customer
 
 `DELETE /api/v1/customers/{email}` (owner only, CSRF header required; the address is URL-encoded)

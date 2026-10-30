@@ -286,6 +286,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tickets/{ticket_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Ticket
+         * @description Run a failed ticket again from where it stopped. 409 when it has not failed.
+         */
+        post: operations["retry_ticket_api_v1_tickets__ticket_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tickets/{ticket_id}/send": {
         parameters: {
             query?: never;
@@ -621,6 +641,15 @@ export interface components {
         RejectRequest: {
             /** Reason */
             reason: string;
+        };
+        /** RetryResult */
+        RetryResult: {
+            status: components["schemas"]["TicketStatus"];
+            /**
+             * Ticket Id
+             * Format: uuid
+             */
+            ticket_id: string;
         };
         /** ReviewOutcome */
         ReviewOutcome: {
@@ -1337,6 +1366,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReviewOutcome"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_ticket_api_v1_tickets__ticket_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticket_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetryResult"];
                 };
             };
             /** @description Validation Error */

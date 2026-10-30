@@ -38,6 +38,9 @@ from services.api.pipeline.wiring import PipelineRuntime, build_pipeline
 from services.api.policy_source import loaded_passages
 from services.api.retention.handler import make_retention_handler
 from services.api.retention.store import RetentionStore
+from services.api.retry.routes import router as retry_router
+from services.api.retry.service import RetryService
+from services.api.retry.store import RetryStore
 from services.api.review.routes import router as review_router
 from services.api.review.service import ReviewService
 from services.api.review.store import ReviewStore
@@ -128,6 +131,7 @@ def create_app(
     metrics_reader: MetricsReader | None = None,
     review_service: ReviewService | None = None,
     erasure_service: ErasureService | None = None,
+    retry_service: RetryService | None = None,
 ) -> FastAPI:
     """Build the app. Tests pass an engine, auth settings, a store and a clock; otherwise the
     database and auth settings come from the environment.
@@ -182,6 +186,11 @@ def create_app(
         app.state.erasure = erasure_service or (
             ErasureService(ErasureStore(database.engine), clock) if database.engine else None
         )
+        app.state.retry = retry_service or (
+            RetryService(RetryStore(database.engine, JobStore(database.engine)), clock)
+            if database.engine
+            else None
+        )
         runner = await _start_jobs(database, job_settings, handlers, clock, engine)
         try:
             yield
@@ -202,6 +211,7 @@ def create_app(
     app.include_router(metrics_router)
     app.include_router(review_router)
     app.include_router(erasure_router)
+    app.include_router(retry_router)
 
     @app.exception_handler(SQLAlchemyError)
     @app.exception_handler(OSError)
