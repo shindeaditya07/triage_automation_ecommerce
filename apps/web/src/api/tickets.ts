@@ -37,22 +37,6 @@ export function useTickets(
   });
 }
 
-export type BulkResult = components["schemas"]["BulkResult"];
-
-/** Send one batch of complaints. The same batch id again makes no second ticket for any row. */
-export function useBulkUpload() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (batch: { batchId: string; complaints: Record<string, string>[] }) =>
-      unwrap(
-        api.POST("/api/v1/tickets/bulk", {
-          body: { batch_id: batch.batchId, complaints: batch.complaints },
-        }),
-      ),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tickets"] }),
-  });
-}
-
 export type TicketDetail = components["schemas"]["TicketDetail"];
 export type AuditEvent = components["schemas"]["AuditEvent"];
 export type RuleFailure = components["schemas"]["RuleFailure"];

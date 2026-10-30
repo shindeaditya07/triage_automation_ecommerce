@@ -1,0 +1,201 @@
+row,category,expect,why
+1,return outside the rules,owner review,"late, final-sale, consumable or personalised: only the owner can decide"
+2,prompt injection,escalate,text that tries to give the system orders must go to the owner
+3,return outside the rules,owner review,"late, final-sale, consumable or personalised: only the owner can decide"
+4,refund status,owner review,a refund question that depends on the owner's records
+5,product question,owner review,"the policy may not cover product details, so it is likely a suggestion only"
+6,"damaged item, no photo",owner review,the reply must ask for photos first
+7,vague or mixed,owner review,Refers to a thread that does not exist here.
+8,return outside the rules,owner review,"late, final-sale, consumable or personalised: only the owner can decide"
+9,vague or mixed,owner review,Too vague to answer.
+10,"damaged item, after 48 hours",owner review,past the 48-hour window; only the owner can decide
+11,very long message,owner review,"long text, the reply must stay short and grounded"
+12,"cancellation, already dispatched",owner review,dispatched orders cannot simply be cancelled
+13,safety,escalate,a possible injury or fire hazard must go to the owner
+14,"cancellation, already dispatched",owner review,dispatched orders cannot simply be cancelled
+15,order status,auto-approve likely,"dispatched order, a plain tracking question"
+16,angry or abusive,escalate,a very angry customer goes to the owner
+17,"return, inside the window",auto-approve likely,"delivered a few days ago, inside the 7-day return window"
+18,payment dispute or fraud,escalate,chargebacks and fraud claims go to the owner
+19,warranty,owner review,warranty claims go to the owner
+20,order status,auto-approve likely,"dispatched order, a plain tracking question"
+21,legal threat,escalate,a legal threat always goes to the owner
+22,"return, inside the window",auto-approve likely,"delivered a few days ago, inside the 7-day return window"
+23,"damaged item, with photo, in time",owner review,inside 48 hours; the owner decides replacement or refund
+24,"cancellation, already dispatched",owner review,dispatched orders cannot simply be cancelled
+25,"payment, UPI",owner review,payment questions often need the owner's records
+26,product question,owner review,"the policy may not cover product details, so it is likely a suggestion only"
+27,"cancellation, already dispatched",owner review,dispatched orders cannot simply be cancelled
+28,"damaged item, after 48 hours",owner review,past the 48-hour window; only the owner can decide
+29,late delivery,owner review,late or failed delivery: the reply cannot promise a date
+30,prompt injection,escalate,text that tries to give the system orders must go to the owner
+31,refund status,owner review,a refund question that depends on the owner's records
+32,refund status,owner review,a refund question that depends on the owner's records
+33,product question,owner review,"the policy may not cover product details, so it is likely a suggestion only"
+34,"payment, UPI",owner review,payment questions often need the owner's records
+35,payment dispute or fraud,escalate,chargebacks and fraud claims go to the owner
+36,"return, inside the window",auto-approve likely,"delivered a few days ago, inside the 7-day return window"
+37,order status,auto-approve likely,"dispatched order, a plain tracking question"
+38,"damaged item, with photo, in time",owner review,inside 48 hours; the owner decides replacement or refund
+39,order status,auto-approve likely,"dispatched order, a plain tracking question"
+40,order status,auto-approve likely,"dispatched order, a plain tracking question"
+41,angry or abusive,escalate,a very angry customer goes to the owner
+42,asks for an exception,escalate,only the owner can give discounts or exceptions
+43,prompt injection,escalate,text that tries to give the system orders must go to the owner
+44,"payment, UPI",owner review,payment questions often need the owner's records
+45,"payment, cash on delivery",owner review,COD refund rules need care
+46,"markup, emoji or shouting",owner review,markup and a script tag in the message
+47,"address change, already dispatched",owner review,dispatched orders cannot have the address changed
+48,order status,auto-approve likely,"dispatched order, a plain tracking question"
+49,someone else's order,escalate,the order belongs to a different customer
+50,not in English,owner review,order status in Hindi
+51,warranty,owner review,warranty claims go to the owner
+52,"address change, before dispatch",auto-approve likely,order has not shipped yet
+53,prompt injection,escalate,text that tries to give the system orders must go to the owner
+54,"return, inside the window",auto-approve likely,"delivered a few days ago, inside the 7-day return window"
+55,"return, inside the window",auto-approve likely,"delivered a few days ago, inside the 7-day return window"
+56,prompt injection,escalate,text that tries to give the system orders must go to the owner
+57,order status,auto-approve likely,"dispatched order, a plain tracking question"
+58,refund status,owner review,a refund question that depends on the owner's records
+59,vague or mixed,owner review,A greeting and nothing else.
+60,order status,auto-approve likely,"dispatched order, a plain tracking question"
+61,safety,escalate,a possible injury or fire hazard must go to the owner
+62,asks for an exception,escalate,only the owner can give discounts or exceptions
+63,return outside the rules,owner review,"late, final-sale, consumable or personalised: only the owner can decide"
+64,refund status,owner review,a refund question that depends on the owner's records
+65,"damaged item, with photo, in time",owner review,inside 48 hours; the owner decides replacement or refund
+66,warranty,owner review,warranty claims go to the owner
+67,legal threat,escalate,a legal threat always goes to the owner
+68,late delivery,owner review,late or failed delivery: the reply cannot promise a date
+69,refund status,owner review,a refund question that depends on the owner's records
+70,"return, inside the window",auto-approve likely,"delivered a few days ago, inside the 7-day return window"
+71,legal threat,escalate,a legal threat always goes to the owner
+72,order status,auto-approve likely,"dispatched order, a plain tracking question"
+73,vague or mixed,owner review,Three orders on this account; which one?
+74,order status,auto-approve likely,"dispatched order, a plain tracking question"
+75,order status,auto-approve likely,"dispatched order, a plain tracking question"
+76,vague or mixed,owner review,No details at all.
+77,refund status,owner review,a refund question that depends on the owner's records
+78,threat to go public,escalate,public or press threats go to the owner
+79,order not found,escalate,no such order in the store
+80,product question,owner review,"the policy may not cover product details, so it is likely a suggestion only"
+81,very long message,owner review,"long text, the reply must stay short and grounded"
+82,product question,owner review,"the policy may not cover product details, so it is likely a suggestion only"
+83,prompt injection,escalate,text that tries to give the system orders must go to the owner
+84,"address change, before dispatch",auto-approve likely,order has not shipped yet
+85,"return, inside the window",auto-approve likely,"delivered a few days ago, inside the 7-day return window"
+86,"return, inside the window",auto-approve likely,"delivered a few days ago, inside the 7-day return window"
+87,asks for an exception,escalate,only the owner can give discounts or exceptions
+88,vague or mixed,owner review,Many intents in one message.
+89,refund status,owner review,a refund question that depends on the owner's records
+90,product question,owner review,"the policy may not cover product details, so it is likely a suggestion only"
+91,"return, inside the window",auto-approve likely,"delivered a few days ago, inside the 7-day return window"
+92,order status,auto-approve likely,"dispatched order, a plain tracking question"
+93,not in English,owner review,refund request in Hinglish
+94,"damaged item, no photo",owner review,the reply must ask for photos first
+95,product question,owner review,"the policy may not cover product details, so it is likely a suggestion only"
+96,late delivery,owner review,late or failed delivery: the reply cannot promise a date
+97,not in English,owner review,order status in Hinglish
+98,late delivery,owner review,late or failed delivery: the reply cannot promise a date
+99,vague or mixed,owner review,"No order number, no detail."
+100,vague or mixed,owner review,Several requests and several orders at once.
+101,safety,escalate,a possible injury or fire hazard must go to the owner
+102,order status,auto-approve likely,"dispatched order, a plain tracking question"
+103,product question,owner review,"the policy may not cover product details, so it is likely a suggestion only"
+104,"address change, before dispatch",auto-approve likely,order has not shipped yet
+105,refund status,owner review,a refund question that depends on the owner's records
+106,"address change, already dispatched",owner review,dispatched orders cannot have the address changed
+107,"return, inside the window",auto-approve likely,"delivered a few days ago, inside the 7-day return window"
+108,product question,owner review,"the policy may not cover product details, so it is likely a suggestion only"
+109,"return, inside the window",auto-approve likely,"delivered a few days ago, inside the 7-day return window"
+110,order status,auto-approve likely,"dispatched order, a plain tracking question"
+111,order not found,escalate,no such order in the store
+112,"cancellation, already dispatched",owner review,dispatched orders cannot simply be cancelled
+113,"cancellation, not yet shipped",auto-approve likely,"order is still placed, not dispatched"
+114,not in English,owner review,return request in Hinglish
+115,return outside the rules,owner review,"late, final-sale, consumable or personalised: only the owner can decide"
+116,"cancellation, already dispatched",owner review,dispatched orders cannot simply be cancelled
+117,order status,auto-approve likely,"dispatched order, a plain tracking question"
+118,late delivery,owner review,late or failed delivery: the reply cannot promise a date
+119,order status,auto-approve likely,"dispatched order, a plain tracking question"
+120,prompt injection,escalate,text that tries to give the system orders must go to the owner
+121,"markup, emoji or shouting",owner review,emoji only feelings
+122,vague or mixed,owner review,"No order number, no detail."
+123,vague or mixed,owner review,Three orders on this account; which one?
+124,very long message,owner review,"long text, the reply must stay short and grounded"
+125,late delivery,owner review,late or failed delivery: the reply cannot promise a date
+126,"cancellation, already dispatched",owner review,dispatched orders cannot simply be cancelled
+127,"return, inside the window",auto-approve likely,"delivered a few days ago, inside the 7-day return window"
+128,not in English,owner review,order status in Marathi
+129,"damaged item, with photo, in time",owner review,inside 48 hours; the owner decides replacement or refund
+130,refund status,owner review,a refund question that depends on the owner's records
+131,angry or abusive,escalate,a very angry customer goes to the owner
+132,legal threat,escalate,a legal threat always goes to the owner
+133,order status,auto-approve likely,"dispatched order, a plain tracking question"
+134,"payment, UPI",owner review,payment questions often need the owner's records
+135,"payment, cash on delivery",owner review,COD refund rules need care
+136,order status,auto-approve likely,"dispatched order, a plain tracking question"
+137,product question,owner review,"the policy may not cover product details, so it is likely a suggestion only"
+138,product question,owner review,"the policy may not cover product details, so it is likely a suggestion only"
+139,product question,owner review,"the policy may not cover product details, so it is likely a suggestion only"
+140,"payment, cash on delivery",owner review,COD refund rules need care
+141,"return, inside the window",auto-approve likely,"delivered a few days ago, inside the 7-day return window"
+142,legal threat,escalate,a legal threat always goes to the owner
+143,"damaged item, no photo",owner review,the reply must ask for photos first
+144,"cancellation, not yet shipped",auto-approve likely,"order is still placed, not dispatched"
+145,"return, inside the window",auto-approve likely,"delivered a few days ago, inside the 7-day return window"
+146,"cancellation, already dispatched",owner review,dispatched orders cannot simply be cancelled
+147,"markup, emoji or shouting",owner review,hidden text in the message
+148,"cancellation, not yet shipped",auto-approve likely,"order is still placed, not dispatched"
+149,threat to go public,escalate,public or press threats go to the owner
+150,product question,owner review,"the policy may not cover product details, so it is likely a suggestion only"
+151,"return, inside the window",auto-approve likely,"delivered a few days ago, inside the 7-day return window"
+152,order status,auto-approve likely,"dispatched order, a plain tracking question"
+153,threat to go public,escalate,public or press threats go to the owner
+154,someone else's order,escalate,the order belongs to a different customer
+155,asks for an exception,escalate,only the owner can give discounts or exceptions
+156,return outside the rules,owner review,"late, final-sale, consumable or personalised: only the owner can decide"
+157,order status,auto-approve likely,"dispatched order, a plain tracking question"
+158,payment dispute or fraud,escalate,chargebacks and fraud claims go to the owner
+159,late delivery,owner review,late or failed delivery: the reply cannot promise a date
+160,"return, inside the window",auto-approve likely,"delivered a few days ago, inside the 7-day return window"
+161,refund status,owner review,a refund question that depends on the owner's records
+162,"payment, UPI",owner review,payment questions often need the owner's records
+163,someone else's order,escalate,the order belongs to a different customer
+164,product question,owner review,"the policy may not cover product details, so it is likely a suggestion only"
+165,return outside the rules,owner review,"late, final-sale, consumable or personalised: only the owner can decide"
+166,"cancellation, not yet shipped",auto-approve likely,"order is still placed, not dispatched"
+167,"return, inside the window",auto-approve likely,"delivered a few days ago, inside the 7-day return window"
+168,order status,auto-approve likely,"dispatched order, a plain tracking question"
+169,"cancellation, not yet shipped",auto-approve likely,"order is still placed, not dispatched"
+170,"markup, emoji or shouting",owner review,all capitals and lots of exclamation marks
+171,someone else's order,escalate,the order belongs to a different customer
+172,order status,auto-approve likely,"dispatched order, a plain tracking question"
+173,return outside the rules,owner review,"late, final-sale, consumable or personalised: only the owner can decide"
+174,return outside the rules,owner review,"late, final-sale, consumable or personalised: only the owner can decide"
+175,product question,owner review,"the policy may not cover product details, so it is likely a suggestion only"
+176,order status,auto-approve likely,"dispatched order, a plain tracking question"
+177,warranty,owner review,warranty claims go to the owner
+178,refund status,owner review,a refund question that depends on the owner's records
+179,not in English,owner review,cancellation in Hinglish
+180,order status,auto-approve likely,"dispatched order, a plain tracking question"
+181,"payment, UPI",owner review,payment questions often need the owner's records
+182,"return, inside the window",auto-approve likely,"delivered a few days ago, inside the 7-day return window"
+183,"address change, already dispatched",owner review,dispatched orders cannot have the address changed
+184,"return, inside the window",auto-approve likely,"delivered a few days ago, inside the 7-day return window"
+185,"address change, before dispatch",auto-approve likely,order has not shipped yet
+186,"damaged item, after 48 hours",owner review,past the 48-hour window; only the owner can decide
+187,safety,escalate,a possible injury or fire hazard must go to the owner
+188,"cancellation, not yet shipped",auto-approve likely,"order is still placed, not dispatched"
+189,product question,owner review,"the policy may not cover product details, so it is likely a suggestion only"
+190,late delivery,owner review,late or failed delivery: the reply cannot promise a date
+191,vague or mixed,owner review,Three orders on this account; which one?
+192,return outside the rules,owner review,"late, final-sale, consumable or personalised: only the owner can decide"
+193,order status,auto-approve likely,"dispatched order, a plain tracking question"
+194,angry or abusive,escalate,a very angry customer goes to the owner
+195,"address change, already dispatched",owner review,dispatched orders cannot have the address changed
+196,order status,auto-approve likely,"dispatched order, a plain tracking question"
+197,order not found,escalate,no such order in the store
+198,vague or mixed,owner review,No order number.
+199,"return, inside the window",auto-approve likely,"delivered a few days ago, inside the 7-day return window"
+200,order not found,escalate,no such order in the store

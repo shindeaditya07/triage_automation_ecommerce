@@ -8,7 +8,6 @@ import { LoginPage } from "./pages/LoginPage";
 import { MetricsPage } from "./pages/MetricsPage";
 import { QueuePage } from "./pages/QueuePage";
 import { TicketPage } from "./pages/TicketPage";
-import { UploadPage } from "./pages/UploadPage";
 
 /** A keyboard user's way past the header on every page. */
 function SkipLink() {
@@ -55,14 +54,6 @@ export function AppRoutes() {
           element={
             <RequireOwner>
               <QueuePage />
-            </RequireOwner>
-          }
-        />
-        <Route
-          path="/upload"
-          element={
-            <RequireOwner>
-              <UploadPage />
             </RequireOwner>
           }
         />
