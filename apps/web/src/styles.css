@@ -145,6 +145,11 @@ main {
   display: flex;
   gap: 0.75rem;
 }
+/* Bottom-right of a row: the queue tab this ticket is listed under. */
+.ticket-tab {
+  margin-left: auto;
+  font-weight: 600;
+}
 .badge {
   padding: 0.1rem 0.5rem;
   border: 1px solid var(--border);

@@ -11,12 +11,27 @@ describe("queue addresses", () => {
   it("names the tab and, past the first, the page", () => {
     expect(queueAddress("escalated")).toBe("/tickets?tab=escalated");
     expect(queueAddress("approved", 3)).toBe("/tickets?tab=approved&page=3");
-    expect(queueAddress("in-progress", 2)).toBe("/tickets?page=2");
+    expect(queueAddress("all", 2)).toBe("/tickets?page=2");
+    expect(queueAddress("in-progress")).toBe("/tickets?tab=in-progress");
   });
 
   it("files every status under a tab", () => {
     expect(tabForStatus("escalated").id).toBe("escalated");
     expect(tabForStatus("sent").id).toBe("approved");
     expect(tabForStatus("classified").id).toBe("in-progress");
+    expect(tabForStatus("new").id).toBe("new");
+  });
+
+  it("leads with an All tab that asks for no status filter", () => {
+    expect(QUEUE_TABS.map((t) => t.label)).toEqual([
+      "All",
+      "In progress",
+      "New",
+      "Escalated",
+      "Approved",
+      "Rejected",
+      "Failed",
+    ]);
+    expect(QUEUE_TABS[0]!.statuses).toEqual([]);
   });
 });

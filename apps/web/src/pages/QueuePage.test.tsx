@@ -83,9 +83,15 @@ describe("the queue", () => {
 
   it("asks for the tab's statuses and changes them when the tab changes", async () => {
     const seen = app(() => page([]));
-    expect(await screen.findByText(/Nothing in “In progress”/)).toBeTruthy();
+    expect(await screen.findByText(/Nothing in “All”/)).toBeTruthy();
     const first = seen.find((r) => r.path === "/api/v1/tickets")!;
-    expect(first.search.getAll("status")).toEqual(["classified", "drafted"]);
+    expect(first.search.getAll("status")).toEqual([]);
+    await userEvent.click(screen.getByRole("tab", { name: "In progress" }));
+    await waitFor(() =>
+      expect(seen.some((r) => r.search.getAll("status").join() === "classified,drafted")).toBe(
+        true,
+      ),
+    );
     await userEvent.click(screen.getByRole("tab", { name: "Escalated" }));
     await waitFor(() =>
       expect(
@@ -95,6 +101,18 @@ describe("the queue", () => {
       ).toBe(true),
     );
     expect(await screen.findByText(/Nothing in “Escalated”/)).toBeTruthy();
+  });
+
+  it("tags each ticket with the tab it is filed under, even when listed under All", async () => {
+    app(() =>
+      page([
+        ticket("d", { status: "drafted" }),
+        ticket("e", { status: "escalated", escalation_reason: "legal_threat" }),
+      ]),
+    );
+    await screen.findByText("Subject d");
+    const tags = document.querySelectorAll(".ticket-tab");
+    expect([...tags].map((t) => t.textContent)).toEqual(["In progress", "Escalated"]);
   });
 
   it("shows an escalation reason in plain words", async () => {

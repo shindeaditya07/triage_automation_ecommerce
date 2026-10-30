@@ -6,8 +6,12 @@ export interface QueueTab {
   statuses: readonly TicketStatus[];
 }
 
-/** The owner's working list is "In progress": drafted tickets wait there for a decision. */
+/**
+ * "All" lists every ticket (no status filter). "In progress" is the owner's working list: drafted
+ * tickets wait there for a decision. Every other tab is one stage of a ticket's life.
+ */
 export const QUEUE_TABS: readonly QueueTab[] = [
+  { id: "all", label: "All", statuses: [] },
   { id: "in-progress", label: "In progress", statuses: ["classified", "drafted"] },
   { id: "new", label: "New", statuses: ["new"] },
   { id: "escalated", label: "Escalated", statuses: ["escalated"] },
@@ -16,7 +20,8 @@ export const QUEUE_TABS: readonly QueueTab[] = [
   { id: "failed", label: "Failed", statuses: ["failed"] },
 ];
 
-/** The tab a ticket with this status is listed under. */
+/** The stage tab a ticket with this status is listed under. "All" holds every ticket, so it is
+ * never the answer. */
 export function tabForStatus(status: TicketStatus): QueueTab {
   return QUEUE_TABS.find((t) => t.statuses.includes(status)) ?? QUEUE_TABS[0]!;
 }

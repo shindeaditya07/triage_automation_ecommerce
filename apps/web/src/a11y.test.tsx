@@ -137,6 +137,7 @@ describe("accessibility", () => {
       "-1",
       "-1",
       "-1",
+      "-1",
     ]);
     const user = userEvent.setup();
     tabs[0]!.focus();
@@ -246,8 +247,6 @@ describe("accessibility", () => {
   it("ignores a tab it does not know", async () => {
     open("/tickets?tab=nonsense&page=abc");
     await screen.findByText("Return my water bottle");
-    expect(screen.getByRole("tab", { name: "In progress" }).getAttribute("aria-selected")).toBe(
-      "true",
-    );
+    expect(screen.getByRole("tab", { name: "All" }).getAttribute("aria-selected")).toBe("true");
   });
 });

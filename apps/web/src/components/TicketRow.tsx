@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 
 import type { TicketSummary } from "../api/tickets";
 import { ageLabel, humanize } from "../format";
+import { tabForStatus } from "../pages/queueTabs";
 
 interface Props {
   ticket: TicketSummary;
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function TicketRow({ ticket, selected, now, returnTo }: Props) {
+  const tab = tabForStatus(ticket.status);
   const injection = ticket.flags.includes("prompt_injection_suspected");
   const classes = ["ticket"];
   if (ticket.status === "escalated") classes.push("escalated");
@@ -53,6 +55,9 @@ export function TicketRow({ ticket, selected, now, returnTo }: Props) {
         <time dateTime={ticket.received_at} title={new Date(ticket.received_at).toLocaleString()}>
           {ageLabel(ticket.received_at, now)}
         </time>
+        <span className="ticket-tab" title={`Listed under the ${tab.label} tab`}>
+          {tab.label}
+        </span>
       </div>
     </li>
   );
