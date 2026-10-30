@@ -16,6 +16,7 @@ from tests.auth.conftest import login
 TICKET = uuid4()
 SUMMARY = TicketSummary(
     ticket_id=TICKET,
+    complaint_id=48213907,
     received_at=datetime(2026, 10, 15, tzinfo=UTC),
     channel=Channel.FORM,
     customer_email="a@example.com",
@@ -45,7 +46,14 @@ class Reader:
             return None
         return TicketDetail(
             **SUMMARY.model_dump(
-                include={"ticket_id", "received_at", "channel", "customer_email", "customer_name"}
+                include={
+                    "ticket_id",
+                    "complaint_id",
+                    "received_at",
+                    "channel",
+                    "customer_email",
+                    "customer_name",
+                }
                 | {"subject", "status", "intent", "urgency", "escalation_reason", "flags"}
             ),
             thread_id=uuid4(),

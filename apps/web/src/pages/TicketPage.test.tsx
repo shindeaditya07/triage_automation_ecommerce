@@ -46,6 +46,7 @@ const detail = (over: Record<string, unknown> = {}) => ({
   channel: "form",
   customer_email: "asha@example.com",
   customer_name: "Asha",
+  complaint_id: 48213907,
   subject: "Return my water bottle",
   body: "Please help with my order.",
   order_id_hint: null,

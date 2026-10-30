@@ -102,10 +102,14 @@ tickets = Table(
     Column("failure_reason", Text),
     # What the order lookup found (migration 0004). Null until the lookup has run.
     Column("order_lookup", JSONB),
+    # The 8-digit number the owner and customer quote (migration 0006). The database draws it.
+    Column("complaint_id", BigInteger, nullable=False, server_default=text("new_complaint_id()")),
     _timestamp("created_at", nullable=False, default_now=True),
     _timestamp("updated_at", nullable=False, default_now=True),
     _timestamp("deleted_at"),
     UniqueConstraint("external_message_id", name="uq_tickets_external_message_id"),
+    UniqueConstraint("complaint_id", name="uq_tickets_complaint_id"),
+    CheckConstraint("complaint_id BETWEEN 10000000 AND 99999999", name="complaint_id"),
     CheckConstraint(_in("channel", Channel), name="channel"),
     CheckConstraint(_in("status", TicketStatus), name="status"),
     CheckConstraint(

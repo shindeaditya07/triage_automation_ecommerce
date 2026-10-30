@@ -73,9 +73,17 @@ def test_external_message_id_is_unique(attempt: Attempt) -> None:
     assert violated(attempt([first, second])) == "uq_tickets_external_message_id"
 
 
+def test_complaint_id_is_unique(attempt: Attempt) -> None:
+    first = ticket(external_message_id="c-1", complaint_id=48213907)
+    second = ticket(external_message_id="c-2", ticket_id=uuid4(), complaint_id=48213907)
+    assert violated(attempt([first, second])) == "uq_tickets_complaint_id"
+
+
 @pytest.mark.parametrize(
     ("columns", "constraint"),
     [
+        ({"complaint_id": 9_999_999}, "ck_tickets_complaint_id"),
+        ({"complaint_id": 100_000_000}, "ck_tickets_complaint_id"),
         ({"channel": "sms"}, "ck_tickets_channel"),
         ({"status": "bogus"}, "ck_tickets_status"),
         ({"customer_email": "A@B.com"}, "ck_tickets_customer_email_normalised"),

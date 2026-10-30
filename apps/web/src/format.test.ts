@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { ageLabel, daysBefore, duration, humanize, istToday, percent, rupees } from "./format";
+import {
+  ageLabel,
+  complaintTitle,
+  daysBefore,
+  duration,
+  humanize,
+  istToday,
+  percent,
+  rupees,
+} from "./format";
 
 const NOW = Date.parse("2026-10-22T12:00:00Z");
 
@@ -45,5 +54,16 @@ describe("metric formats", () => {
     expect(daysBefore("2026-11-02", 6)).toBe("2026-10-27");
     // 20:00 UTC on the 21st is already the 22nd in India.
     expect(istToday(new Date("2026-10-21T20:00:00Z"))).toBe("2026-10-22");
+  });
+});
+
+describe("complaintTitle", () => {
+  it("puts the complaint number before the subject", () => {
+    expect(complaintTitle(48213907, "Return my order")).toBe("48213907 - Return my order");
+  });
+
+  it("keeps the number when there is no subject", () => {
+    expect(complaintTitle(48213907, null)).toBe("48213907 - (no subject)");
+    expect(complaintTitle(48213907, "")).toBe("48213907 - (no subject)");
   });
 });

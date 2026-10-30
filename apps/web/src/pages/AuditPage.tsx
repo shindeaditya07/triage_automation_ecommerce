@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useAudit, useTicket } from "../api/tickets";
 import { describeEvent } from "../auditView";
+import { complaintTitle } from "../format";
 import { useTitle } from "../hooks/useTitle";
 
 const PAGE = 15;
@@ -85,7 +86,11 @@ function Trail({ ticketId }: { ticketId: string }) {
   return (
     <>
       <p>
-        <Link to={`/tickets/${ticketId}`}>{ticket.data?.subject || "Open the ticket"}</Link>
+        <Link to={`/tickets/${ticketId}`}>
+          {ticket.data
+            ? complaintTitle(ticket.data.complaint_id, ticket.data.subject)
+            : "Open the ticket"}
+        </Link>
         {" · "}
         {events.length} event{events.length === 1 ? "" : "s"}, oldest first
       </p>

@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 
 import type { TicketSummary } from "../api/tickets";
-import { ageLabel, humanize } from "../format";
+import { ageLabel, complaintTitle, humanize } from "../format";
 import { tabForStatus } from "../pages/queueTabs";
 
 interface Props {
@@ -26,7 +26,7 @@ export function TicketRow({ ticket, selected, now, returnTo }: Props) {
           to={`/tickets/${ticket.ticket_id}`}
           state={{ from: returnTo }}
         >
-          {ticket.subject || "(no subject)"}
+          {complaintTitle(ticket.complaint_id, ticket.subject)}
         </Link>
         <span className="ticket-from">
           {ticket.customer_name ? `${ticket.customer_name} · ` : ""}

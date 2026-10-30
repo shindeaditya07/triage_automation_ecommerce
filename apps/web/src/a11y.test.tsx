@@ -19,6 +19,7 @@ afterEach(() => {
 const ID = "11111111-1111-4111-8111-111111111111";
 const summary = {
   ticket_id: ID,
+  complaint_id: 48213907,
   received_at: "2026-10-22T10:00:00Z",
   channel: "form",
   customer_email: "a@example.com",
@@ -115,7 +116,7 @@ describe("accessibility", () => {
 
   it("has a skip link, titles each page and moves focus to the content on navigation", async () => {
     open("/tickets");
-    await screen.findByText("Return my water bottle");
+    await screen.findByText("48213907 - Return my water bottle");
     expect(screen.getByRole("link", { name: "Skip to content" }).getAttribute("href")).toBe(
       "#main",
     );
@@ -128,7 +129,7 @@ describe("accessibility", () => {
 
   it("moves between the queue tabs with the arrow keys, one tab stop for the group", async () => {
     open("/tickets");
-    await screen.findByText("Return my water bottle");
+    await screen.findByText("48213907 - Return my water bottle");
     const tabs = screen.getAllByRole("tab");
     expect(tabs.map((t) => t.getAttribute("tabindex"))).toEqual([
       "0",
@@ -159,7 +160,7 @@ describe("accessibility", () => {
 
   it("the queue has none", async () => {
     open("/tickets");
-    await screen.findByText("Return my water bottle");
+    await screen.findByText("48213907 - Return my water bottle");
     expect(await a11yProblems()).toEqual([]);
   });
 
@@ -194,7 +195,7 @@ describe("accessibility", () => {
     expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Metrics" }).getAttribute("aria-current")).toBe("page");
     await userEvent.setup().click(screen.getByRole("link", { name: "Tickets" }));
-    await screen.findByText("Return my water bottle");
+    await screen.findByText("48213907 - Return my water bottle");
     expect(document.title).toBe("Queue · ReplyDesk");
     expect(window.location.pathname).toBe("/tickets");
   });
@@ -219,7 +220,7 @@ describe("accessibility", () => {
 
   it("keeps the queue tab in the address and Back returns to it from a ticket", async () => {
     open("/tickets?tab=escalated");
-    await screen.findByText("Return my water bottle");
+    await screen.findByText("48213907 - Return my water bottle");
     expect(screen.getByRole("tab", { name: "Escalated" }).getAttribute("aria-selected")).toBe(
       "true",
     );
@@ -227,11 +228,11 @@ describe("accessibility", () => {
     await user.click(screen.getByRole("tab", { name: "Approved" }));
     expect(window.location.search).toBe("?tab=approved");
     await user.click(screen.getByRole("tab", { name: "Escalated" }));
-    await user.click(screen.getByRole("link", { name: "Return my water bottle" }));
+    await user.click(screen.getByRole("link", { name: "48213907 - Return my water bottle" }));
     const back = await screen.findByRole("link", { name: /Back to the queue/ });
     expect(back.getAttribute("href")).toBe("/tickets?tab=escalated");
     await user.click(back);
-    await screen.findByText("Return my water bottle");
+    await screen.findByText("48213907 - Return my water bottle");
     expect(window.location.search).toBe("?tab=escalated");
     expect(screen.getByRole("tab", { name: "Escalated" }).getAttribute("aria-selected")).toBe(
       "true",
@@ -246,7 +247,7 @@ describe("accessibility", () => {
 
   it("ignores a tab it does not know", async () => {
     open("/tickets?tab=nonsense&page=abc");
-    await screen.findByText("Return my water bottle");
+    await screen.findByText("48213907 - Return my water bottle");
     expect(screen.getByRole("tab", { name: "All" }).getAttribute("aria-selected")).toBe("true");
   });
 });
